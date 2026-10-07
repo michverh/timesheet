@@ -7,6 +7,7 @@ import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Map;
@@ -17,8 +18,9 @@ class TimesheetTest {
 
   private static final YearMonth FEBRUARY_2028 = YearMonth.of(2028, 2);
   private static final LocalDate A_DAY = LocalDate.of(2028, 2, 10);
+  private static final Professional PROFESSIONAL = Professional.withEmail("jan.jansen@openvalue.nl");
 
-  private final Timesheet timesheet = Timesheet.start(FEBRUARY_2028, new Professional("Jan Jansen"),
+  private final Timesheet timesheet = Timesheet.start(FEBRUARY_2028, PROFESSIONAL,
       Optional.of(Assignment.at(new Client("ACME"), new Project("Platform"))));
 
   @Test
@@ -32,7 +34,7 @@ class TimesheetTest {
   @Test
   void isOnTheBenchWithoutAnAssignment() {
     // When
-    var onBench = Timesheet.start(FEBRUARY_2028, new Professional("Jan Jansen"), Optional.empty());
+    var onBench = Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
 
     // Then
     assertThat(onBench.isOnBench()).isTrue();
@@ -46,6 +48,15 @@ class TimesheetTest {
 
     // Then
     assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
+  }
+
+  @Test
+  void booksQuartersOfAnHour() {
+    // When
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(new BigDecimal("7.75")));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).totalHours().toDecimal()).isEqualByComparingTo("7.75");
   }
 
   @Test

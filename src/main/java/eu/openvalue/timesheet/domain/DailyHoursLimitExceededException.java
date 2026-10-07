@@ -5,6 +5,6 @@ import java.time.LocalDate;
 public final class DailyHoursLimitExceededException extends DomainException {
 
   DailyHoursLimitExceededException(LocalDate date, Hours limit) {
-    super("No more than %d hours can be booked on %s".formatted(limit.value(), date));
+    super("No more than %s can be booked on %s".formatted(limit, date));
   }
 }

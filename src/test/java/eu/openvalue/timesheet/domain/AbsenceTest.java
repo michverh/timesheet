@@ -5,38 +5,37 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 class AbsenceTest {
 
+  private static final LocalDate A_DAY = LocalDate.of(2026, 5, 4);
+
   @Test
-  void cannotEndBeforeItStarts() {
-    assertThatThrownBy(() -> new Absence(LocalDate.of(2026, 5, 2), LocalDate.of(2026, 5, 1)))
+  void mustLastLongerThanZeroHours() {
+    assertThatThrownBy(() -> Absence.of(A_DAY, AbsenceType.LEAVE, Hours.ZERO))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
-  @ParameterizedTest
-  @CsvSource({
-      "2026-04-30, false",
-      "2026-05-01, true",
-      "2026-05-03, true",
-      "2026-05-04, false"
-  })
-  void coversItsFirstAndLastDayInclusive(LocalDate day, boolean covered) {
+  @Test
+  void isExplainedByItsDescription() {
     // Given
-    var absence = new Absence(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 3));
+    var absence = Absence.of(A_DAY, AbsenceType.SPECIAL_LEAVE, Hours.of(8), new Explanation("Wedding"));
 
     // When / Then
-    assertThat(absence.covers(day)).isEqualTo(covered);
+    assertThat(absence.explanation()).contains(new Explanation("Wedding"));
   }
 
   @Test
-  void coversASingleDay() {
+  void fallsBackToTheDefaultExplanationOfItsType() {
     // Given
-    var day = LocalDate.of(2026, 5, 1);
+    var absence = Absence.of(A_DAY, AbsenceType.SPECIAL_LEAVE, Hours.of(8));
 
     // When / Then
-    assertThat(Absence.on(day).covers(day)).isTrue();
+    assertThat(absence.explanation()).contains(new Explanation("Bijzonder verlof"));
+  }
+
+  @Test
+  void isUnexplainedWithoutDescriptionOrDefault() {
+    assertThat(Absence.of(A_DAY, AbsenceType.LEAVE, Hours.of(8)).explanation()).isEmpty();
   }
 }

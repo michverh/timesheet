@@ -1,3 +1,9 @@
 spring:
   application:
     name: timesheet
+
+timesheet:
+  assignment:
+    # Leave the client empty when on the bench.
+    client: Example Client
+    project: Example Project

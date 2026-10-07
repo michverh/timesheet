@@ -1,5 +1,7 @@
 package eu.openvalue.timesheet;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
@@ -20,6 +22,8 @@ class ArchitectureTest {
   private static final String ADAPTER_IN = ROOT + ".adapter.in..";
   private static final String ADAPTER_OUT = ROOT + ".adapter.out..";
   private static final String CONFIGURATION = ROOT + ".configuration..";
+  private static final String INBOUND_PORTS = ROOT + ".application.port.in..";
+  private static final String OUTBOUND_PORTS = ROOT + ".application.port.out..";
 
   @ArchTest
   static final ArchRule dependenciesPointInward = layeredArchitecture()
@@ -48,6 +52,19 @@ class ArchitectureTest {
       .should().onlyDependOnClassesThat().resideInAnyPackage(APPLICATION, DOMAIN, "java..")
       .because("the application core orchestrates the domain without framework or infrastructure concerns")
       .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule inboundAdaptersOnlyUseInboundPorts = noClasses()
+      .that().resideInAPackage(ADAPTER_IN)
+      .should().dependOnClassesThat(resideInAPackage(APPLICATION).and(resideOutsideOfPackage(INBOUND_PORTS)))
+      .because("inbound adapters drive the application through its use case interfaces only")
+      .allowEmptyShould(true);
+
+  @ArchTest
+  static final ArchRule outboundAdaptersOnlyUseOutboundPorts = noClasses()
+      .that().resideInAPackage(ADAPTER_OUT)
+      .should().dependOnClassesThat(resideInAPackage(APPLICATION).and(resideOutsideOfPackage(OUTBOUND_PORTS)))
+      .because("outbound adapters only implement the ports the application core defines");
 
   @ArchTest
   static final ArchRule persistenceStaysInOutboundAdapters = noClasses()

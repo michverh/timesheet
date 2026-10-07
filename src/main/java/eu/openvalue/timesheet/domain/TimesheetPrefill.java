@@ -1,16 +1,27 @@
 package eu.openvalue.timesheet.domain;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.reducing;
+
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Drafts a timesheet from the standard work week of 8 hours on Monday to Friday. Weekends stay empty; on a weekday,
- * a public holiday takes precedence over an absence, which takes precedence over a regular working day. A regular
- * working day is booked as worked when the professional has an assignment, and as available when on the bench.
+ * Drafts a timesheet from the standard work week of 8 hours on Monday to Friday.
+ *
+ * <ul>
+ *   <li>Weekends stay empty.</li>
+ *   <li>A public holiday is booked as such, regardless of any registered absence.</li>
+ *   <li>Absences are booked in the category of their type, with their explanation.</li>
+ *   <li>The remainder of the standard workday is booked as worked when the professional has an assignment, and as
+ *   available when on the bench.</li>
+ * </ul>
  */
 public final class TimesheetPrefill {
 
@@ -24,22 +35,41 @@ public final class TimesheetPrefill {
 
   public Timesheet prefill(YearMonth month, Professional professional, Optional<Assignment> assignment,
       Collection<Absence> absences) {
-    var knownAbsences = List.copyOf(absences);
     var timesheet = Timesheet.start(month, professional, assignment);
+    var absencesByDate = absences.stream().collect(groupingBy(Absence::date));
     timesheet.days().stream()
         .filter(day -> !day.isWeekend())
         .map(DayEntry::date)
-        .forEach(date -> timesheet.bookHours(date, categoryOf(date, timesheet, knownAbsences), STANDARD_WORKDAY));
+        .forEach(date -> prefillWeekday(timesheet, date, absencesByDate.getOrDefault(date, List.of())));
     return timesheet;
   }
 
-  private HourCategory categoryOf(LocalDate weekday, Timesheet timesheet, List<Absence> absences) {
-    if (publicHolidays.isPublicHoliday(weekday)) {
-      return HourCategory.PUBLIC_HOLIDAY;
+  private void prefillWeekday(Timesheet timesheet, LocalDate date, List<Absence> absences) {
+    if (publicHolidays.isPublicHoliday(date)) {
+      timesheet.bookHours(date, HourCategory.PUBLIC_HOLIDAY, STANDARD_WORKDAY);
+      return;
     }
-    if (absences.stream().anyMatch(absence -> absence.covers(weekday))) {
-      return HourCategory.LEAVE;
+    absentHoursPerCategory(absences).forEach((category, hours) -> timesheet.bookHours(date, category, hours));
+    explanationOf(absences).ifPresent(explanation -> timesheet.explain(date, explanation));
+
+    var absentHours = timesheet.day(date).totalHours();
+    if (STANDARD_WORKDAY.isGreaterThan(absentHours)) {
+      var regularCategory = timesheet.isOnBench() ? HourCategory.AVAILABLE : HourCategory.WORKED;
+      timesheet.bookHours(date, regularCategory, STANDARD_WORKDAY.minus(absentHours));
     }
-    return timesheet.isOnBench() ? HourCategory.AVAILABLE : HourCategory.WORKED;
+  }
+
+  private static Map<HourCategory, Hours> absentHoursPerCategory(List<Absence> absences) {
+    return absences.stream().collect(
+        groupingBy(absence -> absence.type().category(), reducing(Hours.ZERO, Absence::hours, Hours::plus)));
+  }
+
+  private static Optional<Explanation> explanationOf(List<Absence> absences) {
+    var text = absences.stream()
+        .flatMap(absence -> absence.explanation().stream())
+        .map(Explanation::text)
+        .distinct()
+        .collect(joining("; "));
+    return text.isEmpty() ? Optional.empty() : Optional.of(new Explanation(text));
   }
 }
