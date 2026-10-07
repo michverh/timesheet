@@ -19,10 +19,11 @@ import java.util.Optional;
  */
 public record TimesheetPage(String professionalName, String professionalEmail, YearMonth month, String monthLabel,
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
-    List<String> daysLackingExplanation) {
+    List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
+  private static final DateTimeFormatter DATE_LABEL = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
 
   static TimesheetPage of(Timesheet timesheet) {
     var assignment = timesheet.assignment();
@@ -40,7 +41,9 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.days().stream().map(DayRow::of).toList(),
         totalHours,
         DayRow.format(timesheet.totalKilometres()),
-        timesheet.daysLackingRequiredExplanation().stream().map(DAY_LABEL::format).toList());
+        timesheet.daysLackingRequiredExplanation().stream().map(DAY_LABEL::format).toList(),
+        timesheet.submittedOn().map(DATE_LABEL::format),
+        timesheet.previouslySubmittedOn().map(DATE_LABEL::format));
   }
 
   Optional<DayRow> day(LocalDate date) {
@@ -53,6 +56,17 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
 
   public YearMonth nextMonth() {
     return month.plusMonths(1);
+  }
+
+  public boolean submitted() {
+    return submittedOn.isPresent();
+  }
+
+  /**
+   * Whether the timesheet was reopened to correct an earlier submission, and has not been submitted again yet.
+   */
+  public boolean beingCorrected() {
+    return !submitted() && previouslySubmittedOn.isPresent();
   }
 
   public boolean onBench() {

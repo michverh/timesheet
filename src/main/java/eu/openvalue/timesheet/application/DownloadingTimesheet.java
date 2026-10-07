@@ -6,15 +6,14 @@ import eu.openvalue.timesheet.application.port.in.TimesheetDownload;
 import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
-import eu.openvalue.timesheet.domain.Timesheet;
 import java.util.Objects;
 
-public final class DownloadTimesheet implements DownloadTimesheetUseCase {
+public final class DownloadingTimesheet implements DownloadTimesheetUseCase {
 
   private final TimesheetDrafts drafts;
   private final TimesheetSpreadsheet spreadsheet;
 
-  public DownloadTimesheet(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet) {
+  public DownloadingTimesheet(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet) {
     this.drafts = Objects.requireNonNull(drafts, "drafts");
     this.spreadsheet = Objects.requireNonNull(spreadsheet, "spreadsheet");
   }
@@ -26,11 +25,7 @@ public final class DownloadTimesheet implements DownloadTimesheetUseCase {
     var draft = drafts.find(professional, month)
         .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
     var file = spreadsheet.create(draft);
-    return new TimesheetDownload(fileNameOf(draft, file.fileExtension()), file.mediaType(), file.content());
-  }
-
-  private static String fileNameOf(Timesheet timesheet, String fileExtension) {
-    var name = timesheet.professional().name().replace(' ', '_');
-    return "Urenverantwoording_%s_%s.%s".formatted(timesheet.month(), name, fileExtension);
+    return new TimesheetDownload(SpreadsheetFileName.of(draft, file.fileExtension()), file.mediaType(),
+        file.content());
   }
 }

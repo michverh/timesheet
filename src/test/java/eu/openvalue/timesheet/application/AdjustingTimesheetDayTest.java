@@ -21,14 +21,14 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class AdjustTimesheetDayTest {
+class AdjustingTimesheetDayTest {
 
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final LocalDate MONDAY = LocalDate.of(2026, 5, 4);
   private static final Professional JAN = Professional.withEmail("jan.jansen@openvalue.nl");
 
   private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
-  private final AdjustTimesheetDay adjustDay = new AdjustTimesheetDay(drafts);
+  private final AdjustingTimesheetDay adjustDay = new AdjustingTimesheetDay(drafts);
 
   private Timesheet draft;
 

@@ -4,6 +4,7 @@ import static eu.openvalue.timesheet.domain.HourCategory.AVAILABLE;
 import static eu.openvalue.timesheet.domain.HourCategory.LEAVE;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
@@ -16,6 +17,7 @@ import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Professional;
+import eu.openvalue.timesheet.domain.TimesheetAlreadySubmittedException;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -24,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-class PrepareTimesheetDraftTest {
+class PreparingTimesheetDraftTest {
 
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final LocalDate MONDAY = LocalDate.of(2026, 5, 4);
@@ -41,7 +43,7 @@ class PrepareTimesheetDraftTest {
 
   private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
 
-  private final PrepareTimesheetDraft prepareDraft = new PrepareTimesheetDraft(
+  private final PreparingTimesheetDraft prepareDraft = new PreparingTimesheetDraft(
       new TimesheetPrefill(new DutchPublicHolidays()), absenceRegistry, assignments, drafts);
 
   @Test
@@ -78,6 +80,30 @@ class PrepareTimesheetDraftTest {
     // Then
     assertThat(reset.day(MONDAY.plusDays(1)).hours(WORKED)).isEqualTo(Hours.of(8));
     assertThat(drafts.find(JAN, MAY_2026)).containsSame(reset);
+  }
+
+  @Test
+  void refusesToResetASubmittedTimesheet() {
+    // Given
+    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026)).submit(LocalDate.of(2026, 6, 1));
+
+    // When / Then
+    assertThatThrownBy(() -> prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026)))
+        .isInstanceOf(TimesheetAlreadySubmittedException.class);
+  }
+
+  @Test
+  void keepsACorrectionACorrectionWhenReset() {
+    // Given
+    var draft = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    draft.submit(LocalDate.of(2026, 6, 1));
+    draft.reopenForCorrection();
+
+    // When
+    var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(reset.previouslySubmittedOn()).contains(LocalDate.of(2026, 6, 1));
   }
 
   @Test

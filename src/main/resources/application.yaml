@@ -1,6 +1,10 @@
 spring:
   application:
     name: timesheet
+  # Mailpit from compose.yaml catches all mail; see http://localhost:8025
+  mail:
+    host: localhost
+    port: 1025
 
 timesheet:
   # The professional using the application, until users log in.
@@ -10,3 +14,8 @@ timesheet:
     # Leave the client empty when on the bench.
     client: Example Client
     project: Example Project
+  mail:
+    from: timesheets@openvalue.example
+    to:
+      - hr@openvalue.example
+      - finance@openvalue.example

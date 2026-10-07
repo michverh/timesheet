@@ -17,9 +17,10 @@ public final class Timesheet {
 
   private final YearMonth month;
   private final Professional professional;
-  private final Assignment assignment;
   private final SortedMap<LocalDate, DayEntry> days = new TreeMap<>();
+  private Assignment assignment;
   private LocalDate submittedOn;
+  private LocalDate previouslySubmittedOn;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
     this.month = month;
@@ -111,18 +112,59 @@ public final class Timesheet {
   }
 
   /**
-   * Submits the timesheet, after which it can no longer be changed.
+   * Starts over from a freshly prepared timesheet for the same professional and month, discarding all changes. Earlier
+   * submissions are remembered, so a correction remains a correction.
+   *
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
+   */
+  public void restartFrom(Timesheet prepared) {
+    Objects.requireNonNull(prepared, "prepared");
+    requireNotSubmitted();
+    if (!prepared.month.equals(month) || !prepared.professional.equals(professional)) {
+      throw new IllegalArgumentException("Can only restart from a timesheet of %s for %s".formatted(
+          professional.email(), month));
+    }
+    assignment = prepared.assignment;
+    days.clear();
+    days.putAll(prepared.days);
+  }
+
+  /**
+   * Checks whether the timesheet can be submitted, without submitting it.
    *
    * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
    */
-  public void submit(LocalDate today) {
+  public void ensureSubmittableOn(LocalDate today) {
     Objects.requireNonNull(today, "today");
     requireNotSubmitted();
     if (month.isAfter(YearMonth.from(today))) {
       throw new FutureMonthNotSubmittableException(month);
     }
+  }
+
+  /**
+   * Submits the timesheet, after which it can no longer be changed until it is reopened for correction.
+   *
+   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
+   */
+  public void submit(LocalDate today) {
+    ensureSubmittableOn(today);
     submittedOn = today;
+  }
+
+  /**
+   * Makes a submitted timesheet changeable again, so it can be corrected and submitted once more.
+   *
+   * @throws TimesheetNotSubmittedException when the timesheet has not been submitted
+   */
+  public void reopenForCorrection() {
+    if (!isSubmitted()) {
+      throw new TimesheetNotSubmittedException(month);
+    }
+    previouslySubmittedOn = submittedOn;
+    submittedOn = null;
   }
 
   public boolean isSubmitted() {
@@ -131,6 +173,13 @@ public final class Timesheet {
 
   public Optional<LocalDate> submittedOn() {
     return Optional.ofNullable(submittedOn);
+  }
+
+  /**
+   * When the timesheet was last submitted before it was reopened for correction, if it ever was.
+   */
+  public Optional<LocalDate> previouslySubmittedOn() {
+    return Optional.ofNullable(previouslySubmittedOn);
   }
 
   private void update(DayEntry entry) {

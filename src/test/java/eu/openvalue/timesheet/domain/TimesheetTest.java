@@ -251,4 +251,109 @@ class TimesheetTest {
     // When / Then
     assertThat(timesheet.totalKilometres()).isEqualTo(Kilometres.of(100));
   }
+
+  @Test
+  void canBeCheckedForSubmissionWithoutBeingSubmitted() {
+    // When
+    timesheet.ensureSubmittableOn(LocalDate.of(2028, 2, 15));
+
+    // Then
+    assertThat(timesheet.isSubmitted()).isFalse();
+  }
+
+  @Test
+  void failsTheSubmissionCheckBeforeItsMonthHasStarted() {
+    assertThatThrownBy(() -> timesheet.ensureSubmittableOn(LocalDate.of(2028, 1, 31)))
+        .isInstanceOf(FutureMonthNotSubmittableException.class);
+  }
+
+  @Test
+  void canBeChangedAgainOnceReopenedForCorrection() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+
+    // When
+    timesheet.reopenForCorrection();
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(6));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(6));
+  }
+
+  @Test
+  void remembersWhenItWasSubmittedBeforeTheCorrection() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+
+    // When
+    timesheet.reopenForCorrection();
+
+    // Then
+    assertThat(timesheet.isSubmitted()).isFalse();
+    assertThat(timesheet.previouslySubmittedOn()).contains(LocalDate.of(2028, 3, 1));
+  }
+
+  @Test
+  void canBeSubmittedAgainAfterACorrection() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+    timesheet.reopenForCorrection();
+
+    // When
+    timesheet.submit(LocalDate.of(2028, 3, 5));
+
+    // Then
+    assertThat(timesheet.submittedOn()).contains(LocalDate.of(2028, 3, 5));
+    assertThat(timesheet.previouslySubmittedOn()).contains(LocalDate.of(2028, 3, 1));
+  }
+
+  @Test
+  void cannotBeReopenedWhenNotSubmitted() {
+    assertThatThrownBy(timesheet::reopenForCorrection).isInstanceOf(TimesheetNotSubmittedException.class);
+  }
+
+  @Test
+  void restartsFromAFreshlyPreparedTimesheet() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(6));
+    var prepared = Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
+    prepared.bookHours(A_DAY, LEAVE, Hours.of(8));
+
+    // When
+    timesheet.restartFrom(prepared);
+
+    // Then
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(LEAVE, Hours.of(8)));
+    assertThat(timesheet.isOnBench()).isTrue();
+  }
+
+  @Test
+  void remainsACorrectionWhenRestarted() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+    timesheet.reopenForCorrection();
+
+    // When
+    timesheet.restartFrom(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()));
+
+    // Then
+    assertThat(timesheet.previouslySubmittedOn()).contains(LocalDate.of(2028, 3, 1));
+  }
+
+  @Test
+  void cannotRestartOnceSubmitted() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+
+    // When / Then
+    assertThatThrownBy(() -> timesheet.restartFrom(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty())))
+        .isInstanceOf(TimesheetAlreadySubmittedException.class);
+  }
+
+  @Test
+  void canOnlyRestartFromATimesheetOfTheSameProfessionalAndMonth() {
+    assertThatThrownBy(() -> timesheet.restartFrom(
+        Timesheet.start(FEBRUARY_2028.plusMonths(1), PROFESSIONAL, Optional.empty())))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

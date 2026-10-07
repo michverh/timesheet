@@ -1,6 +1,7 @@
 package eu.openvalue.timesheet.adapter.in.web;
 
 import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
+import eu.openvalue.timesheet.application.port.in.TimesheetSubmissionFailedException;
 import eu.openvalue.timesheet.domain.DomainException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -18,6 +19,12 @@ class TimesheetExceptionHandler {
   ResponseEntity<String> draftNotFound(TimesheetDraftNotFoundException exception) {
     return plainText(HttpStatus.NOT_FOUND,
         "This draft timesheet is no longer available. Reload the page to start again from the prefilled hours.");
+  }
+
+  @ExceptionHandler
+  ResponseEntity<String> submissionFailed(TimesheetSubmissionFailedException exception) {
+    return plainText(HttpStatus.SERVICE_UNAVAILABLE,
+        "The timesheet could not be sent to HR, so it has not been submitted. Please try again later.");
   }
 
   @ExceptionHandler

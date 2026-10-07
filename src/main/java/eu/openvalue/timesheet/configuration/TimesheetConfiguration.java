@@ -5,17 +5,24 @@ import eu.openvalue.timesheet.adapter.in.web.CurrentProfessionalProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
+import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
+import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
-import eu.openvalue.timesheet.application.AdjustTimesheetDay;
-import eu.openvalue.timesheet.application.DownloadTimesheet;
-import eu.openvalue.timesheet.application.PrepareTimesheetDraft;
+import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
+import eu.openvalue.timesheet.application.CorrectingTimesheet;
+import eu.openvalue.timesheet.application.DownloadingTimesheet;
+import eu.openvalue.timesheet.application.PreparingTimesheetDraft;
+import eu.openvalue.timesheet.application.SubmittingTimesheet;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
+import eu.openvalue.timesheet.application.port.in.CorrectTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
+import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
@@ -26,10 +33,12 @@ import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.mail.javamail.JavaMailSender;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
-    AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class})
+    AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
+    TimesheetMailProperties.class})
 class TimesheetConfiguration {
 
   @Bean
@@ -69,14 +78,14 @@ class TimesheetConfiguration {
    * Serves both as {@link PrepareTimesheetDraftUseCase} and as {@link ResetTimesheetDraftUseCase}.
    */
   @Bean
-  PrepareTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill,
+  PreparingTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill,
       AbsenceRegistry absenceRegistry, Assignments assignments, TimesheetDrafts drafts) {
-    return new PrepareTimesheetDraft(prefill, absenceRegistry, assignments, drafts);
+    return new PreparingTimesheetDraft(prefill, absenceRegistry, assignments, drafts);
   }
 
   @Bean
   AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(TimesheetDrafts drafts) {
-    return new AdjustTimesheetDay(drafts);
+    return new AdjustingTimesheetDay(drafts);
   }
 
   @Bean
@@ -86,6 +95,22 @@ class TimesheetConfiguration {
 
   @Bean
   DownloadTimesheetUseCase downloadTimesheetUseCase(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet) {
-    return new DownloadTimesheet(drafts, spreadsheet);
+    return new DownloadingTimesheet(drafts, spreadsheet);
+  }
+
+  @Bean
+  TimesheetDelivery timesheetDelivery(JavaMailSender mailSender, TimesheetMailProperties properties) {
+    return new MailTimesheetDelivery(mailSender, properties);
+  }
+
+  @Bean
+  SubmitTimesheetUseCase submitTimesheetUseCase(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet,
+      TimesheetDelivery delivery, Clock clock) {
+    return new SubmittingTimesheet(drafts, spreadsheet, delivery, clock);
+  }
+
+  @Bean
+  CorrectTimesheetUseCase correctTimesheetUseCase(TimesheetDrafts drafts) {
+    return new CorrectingTimesheet(drafts);
   }
 }

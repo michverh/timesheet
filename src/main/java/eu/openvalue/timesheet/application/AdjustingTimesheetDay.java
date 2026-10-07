@@ -8,11 +8,11 @@ import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.YearMonth;
 import java.util.Objects;
 
-public final class AdjustTimesheetDay implements AdjustTimesheetDayUseCase {
+public final class AdjustingTimesheetDay implements AdjustTimesheetDayUseCase {
 
   private final TimesheetDrafts drafts;
 
-  public AdjustTimesheetDay(TimesheetDrafts drafts) {
+  public AdjustingTimesheetDay(TimesheetDrafts drafts) {
     this.drafts = Objects.requireNonNull(drafts, "drafts");
   }
 

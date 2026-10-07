@@ -14,7 +14,7 @@ import java.time.YearMonth;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-class DownloadTimesheetTest {
+class DownloadingTimesheetTest {
 
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final Professional JAN = Professional.withEmail("jan.van.der.berg@openvalue.nl");
@@ -24,7 +24,7 @@ class DownloadTimesheetTest {
       "application/vnd.oasis.opendocument.spreadsheet",
       ("spreadsheet of " + timesheet.professional().name() + " for " + timesheet.month())
           .getBytes(StandardCharsets.UTF_8));
-  private final DownloadTimesheet download = new DownloadTimesheet(drafts, spreadsheet);
+  private final DownloadingTimesheet download = new DownloadingTimesheet(drafts, spreadsheet);
 
   @Test
   void givesTheDraftAsSpreadsheet() {

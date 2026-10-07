@@ -82,6 +82,9 @@ interface PlaceOrderUseCase {
 ```
 
 * Prefer use-case-specific interfaces over large generic `*Service` APIs.
+* Name a use case interface after the action, in the imperative (`SubmitTimesheetUseCase`, with a
+  `SubmitTimesheetCommand`), and its implementation after the action in progress, as a present participle
+  (`SubmittingTimesheet`). This keeps implementations from reading like domain objects or commands.
 * Separate commands and queries conceptually, without introducing CQRS infrastructure unless justified.
 * Define outbound ports in the application core for external capabilities it requires.
 * The application core owns abstractions; adapters implement them.

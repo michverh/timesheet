@@ -16,14 +16,14 @@ import java.util.Objects;
 /**
  * Prepares prefilled drafts: once when a draft is first needed, and again when the professional resets it.
  */
-public final class PrepareTimesheetDraft implements PrepareTimesheetDraftUseCase, ResetTimesheetDraftUseCase {
+public final class PreparingTimesheetDraft implements PrepareTimesheetDraftUseCase, ResetTimesheetDraftUseCase {
 
   private final TimesheetPrefill prefill;
   private final AbsenceRegistry absenceRegistry;
   private final Assignments assignments;
   private final TimesheetDrafts drafts;
 
-  public PrepareTimesheetDraft(TimesheetPrefill prefill, AbsenceRegistry absenceRegistry, Assignments assignments,
+  public PreparingTimesheetDraft(TimesheetPrefill prefill, AbsenceRegistry absenceRegistry, Assignments assignments,
       TimesheetDrafts drafts) {
     this.prefill = Objects.requireNonNull(prefill, "prefill");
     this.absenceRegistry = Objects.requireNonNull(absenceRegistry, "absenceRegistry");
@@ -40,13 +40,26 @@ public final class PrepareTimesheetDraft implements PrepareTimesheetDraftUseCase
 
   @Override
   public Timesheet resetDraft(ResetTimesheetDraftCommand command) {
-    return prepareNewDraft(command.professional(), command.month());
+    var professional = command.professional();
+    var month = command.month();
+    var existing = drafts.find(professional, month);
+    if (existing.isEmpty()) {
+      return prepareNewDraft(professional, month);
+    }
+    var draft = existing.get();
+    draft.restartFrom(prefilled(professional, month));
+    drafts.save(draft);
+    return draft;
   }
 
   private Timesheet prepareNewDraft(Professional professional, YearMonth month) {
-    var draft = prefill.prefill(month, professional, assignments.assignmentOf(professional, month),
-        absenceRegistry.absencesOf(professional, month));
+    var draft = prefilled(professional, month);
     drafts.save(draft);
     return draft;
+  }
+
+  private Timesheet prefilled(Professional professional, YearMonth month) {
+    return prefill.prefill(month, professional, assignments.assignmentOf(professional, month),
+        absenceRegistry.absencesOf(professional, month));
   }
 }

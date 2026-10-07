@@ -1,0 +1,7 @@
+# Local infrastructure, started automatically by Spring Boot when running the application.
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web interface: http://localhost:8025

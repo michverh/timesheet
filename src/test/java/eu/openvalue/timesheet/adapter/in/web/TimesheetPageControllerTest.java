@@ -4,6 +4,7 @@ import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.JAN;
 import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.MAY_2026;
 import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.draft;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +12,7 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -50,6 +52,54 @@ class TimesheetPageControllerTest {
         .contains("Jan Jansen", "May 2026", "ACME", "Platform")
         .contains("id=\"day-2026-05-31\"")
         .containsPattern("id=\"2026-05-04-WORKED\"\\s+name=\"hours-WORKED\"\\s+value=\"8\"");
+  }
+
+  @Test
+  void offersToResetAndSubmitADraft() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft());
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("Reset to prefilled hours", "Submit to HR")
+        .doesNotContain("Make a correction", "fieldset class=\"days\" disabled");
+  }
+
+  @Test
+  void showsASubmittedTimesheetReadOnlyWithTheOptionToCorrectIt() {
+    // Given
+    var submitted = draft();
+    submitted.submit(LocalDate.of(2026, 6, 1));
+    when(prepareDraft.prepareDraft(any())).thenReturn(submitted);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("Submitted to HR on <strong>1 June 2026</strong>")
+        .contains("fieldset class=\"days\" disabled=\"disabled\"", "Make a correction")
+        .doesNotContain("Reset to prefilled hours", "Submit to HR");
+  }
+
+  @Test
+  void offersToSubmitTheCorrectionOfAReopenedTimesheet() {
+    // Given
+    var reopened = draft();
+    reopened.submit(LocalDate.of(2026, 6, 1));
+    reopened.reopenForCorrection();
+    when(prepareDraft.prepareDraft(any())).thenReturn(reopened);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("You are correcting the timesheet submitted on", "1 June 2026", "Submit correction")
+        .doesNotContain("Make a correction");
   }
 
   @Test

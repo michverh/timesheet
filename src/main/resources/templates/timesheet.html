@@ -49,15 +49,40 @@
     </ul>
   </section>
 
+  <section class="banner info" th:if="${page.submitted}">
+    Submitted to HR on <strong th:text="${page.submittedOn.orElse('')}">7 October 2026</strong>.
+    It can no longer be changed; make a correction to change it and submit it again.
+  </section>
+  <section class="banner info" th:if="${page.beingCorrected}">
+    You are correcting the timesheet submitted on
+    <strong th:text="${page.previouslySubmittedOn.orElse('')}">7 October 2026</strong>.
+    Submit it again to send the corrected version to HR.
+  </section>
+
   <div class="toolbar">
-    <a class="button secondary" th:href="@{/timesheets/{month}/download(month=${page.month})}">Download Excel</a>
-    <button type="button" class="secondary"
-            th:hx-post="@{/timesheets/{month}/reset(month=${page.month})}"
-            hx-confirm="Discard all changes to this month and prefill it again from the standard work week, public holidays and registered absences?">
-      Reset to prefilled hours
+    <a class="secondary" th:href="@{/timesheets/{month}/download(month=${page.month})}">Download spreadsheet</a>
+    <th:block th:unless="${page.submitted}">
+      <button type="button" class="secondary"
+              th:hx-post="@{/timesheets/{month}/reset(month=${page.month})}"
+              hx-confirm="Discard all changes to this month and prefill it again from the standard work week, public holidays and registered absences?">
+        Reset to prefilled hours
+      </button>
+      <button type="button" class="primary"
+              th:hx-post="@{/timesheets/{month}/submission(month=${page.month})}"
+              th:hx-confirm="|Send the timesheet for ${page.monthLabel} to HR? After that it can only be changed by making a correction.|"
+              th:text="${page.beingCorrected} ? 'Submit correction' : 'Submit to HR'">
+        Submit to HR
+      </button>
+    </th:block>
+    <button type="button" class="secondary" th:if="${page.submitted}"
+            th:hx-post="@{/timesheets/{month}/correction(month=${page.month})}"
+            th:hx-confirm="|Reopen the timesheet for ${page.monthLabel} to correct it? You will need to submit it again.|">
+      Make a correction
     </button>
   </div>
 
+  <fieldset class="days" th:disabled="${page.submitted}">
+    <legend class="visually-hidden">Days</legend>
   <div class="table-wrap">
     <table class="timesheet">
       <thead>
@@ -84,6 +109,7 @@
       </tfoot>
     </table>
   </div>
+  </fieldset>
 </main>
 
 <script>
