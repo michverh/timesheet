@@ -50,6 +50,7 @@
   </section>
 
   <div class="toolbar">
+    <a class="button secondary" th:href="@{/timesheets/{month}/download(month=${page.month})}">Download Excel</a>
     <button type="button" class="secondary"
             th:hx-post="@{/timesheets/{month}/reset(month=${page.month})}"
             hx-confirm="Discard all changes to this month and prefill it again from the standard work week, public holidays and registered absences?">

@@ -74,5 +74,11 @@ class ArchitectureTest {
       .because("persistence is an implementation detail of the outbound adapters");
 
   @ArchTest
+  static final ArchRule spreadsheetLibraryStaysInOutboundAdapters = noClasses()
+      .that().resideOutsideOfPackage(ADAPTER_OUT)
+      .should().dependOnClassesThat().resideInAnyPackage("org.apache.poi..")
+      .because("the spreadsheet format is an implementation detail of the outbound adapters");
+
+  @ArchTest
   static final ArchRule noFieldInjection = NO_CLASSES_SHOULD_USE_FIELD_INJECTION.allowEmptyShould(true);
 }

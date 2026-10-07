@@ -1,5 +1,8 @@
 package eu.openvalue.timesheet.adapter.in.web;
 
+import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.JAN;
+import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.MAY_2026;
+import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.draft;
 import static eu.openvalue.timesheet.domain.HourCategory.LEAVE;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,80 +13,36 @@ import static org.mockito.Mockito.when;
 
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayCommand;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
-import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
-import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
-import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
-import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
-import eu.openvalue.timesheet.domain.Assignment;
-import eu.openvalue.timesheet.domain.Client;
-import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Kilometres;
-import eu.openvalue.timesheet.domain.Professional;
-import eu.openvalue.timesheet.domain.Project;
-import eu.openvalue.timesheet.domain.Timesheet;
-import eu.openvalue.timesheet.domain.TimesheetPrefill;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
-import java.time.ZoneId;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-@WebMvcTest(TimesheetController.class)
-class TimesheetControllerTest {
+@WebMvcTest(TimesheetDayController.class)
+@Import(WebTestConfiguration.class)
+class TimesheetDayControllerTest {
 
-  private static final Professional JAN = Professional.withEmail("jan.jansen@openvalue.nl");
-  private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final LocalDate MONDAY = LocalDate.of(2026, 5, 4);
 
   @Autowired
   private MockMvcTester mvc;
 
   @MockitoBean
-  private PrepareTimesheetDraftUseCase prepareDraft;
-
-  @MockitoBean
   private AdjustTimesheetDayUseCase adjustDay;
 
-  @MockitoBean
-  private ResetTimesheetDraftUseCase resetDraft;
-
   @Test
-  void opensTheTimesheetOfTheCurrentMonth() {
-    assertThat(mvc.get().uri("/")).hasStatus(HttpStatus.FOUND).hasRedirectedUrl("/timesheets/2026-05");
-  }
-
-  @Test
-  void showsTheDraftOfTheCurrentProfessional() {
-    // Given
-    when(prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026))).thenReturn(draft());
-
-    // When
-    var response = mvc.get().uri("/timesheets/2026-05");
-
-    // Then
-    assertThat(response).hasStatusOk().bodyText()
-        .contains("Jan Jansen", "May 2026", "ACME", "Platform")
-        .contains("id=\"day-2026-05-31\"")
-        .containsPattern("id=\"2026-05-04-WORKED\"\\s+name=\"hours-WORKED\"\\s+value=\"8\"");
-  }
-
-  @Test
-  void adjustsADayWithTheEnteredValues() {
+  void adjustsTheDayOfTheCurrentProfessionalWithTheEnteredValues() {
     // Given
     when(adjustDay.adjustDay(any())).thenReturn(draft());
 
@@ -161,34 +120,5 @@ class TimesheetControllerTest {
   void rejectsADayOutsideTheMonth() {
     assertThat(mvc.post().uri("/timesheets/2026-05/days/2026-06-01").param("hours-WORKED", "8"))
         .hasStatus(HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  void prefillsTheMonthAgainAndLetsThePageReload() {
-    // When
-    var response = mvc.post().uri("/timesheets/2026-05/reset");
-
-    // Then
-    assertThat(response).hasStatus(HttpStatus.NO_CONTENT).hasHeader("HX-Refresh", "true");
-    verify(resetDraft).resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
-  }
-
-  private static Timesheet draft() {
-    return new TimesheetPrefill(new DutchPublicHolidays())
-        .prefill(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME"), new Project("Platform"))), List.of());
-  }
-
-  @TestConfiguration
-  static class Configuration {
-
-    @Bean
-    Clock clock() {
-      return Clock.fixed(Instant.parse("2026-05-15T10:00:00Z"), ZoneId.of("Europe/Amsterdam"));
-    }
-
-    @Bean
-    CurrentProfessional currentProfessional() {
-      return new CurrentProfessional(JAN);
-    }
   }
 }

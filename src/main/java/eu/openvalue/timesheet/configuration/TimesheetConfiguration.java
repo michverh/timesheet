@@ -5,14 +5,19 @@ import eu.openvalue.timesheet.adapter.in.web.CurrentProfessionalProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
+import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
+import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustTimesheetDay;
+import eu.openvalue.timesheet.application.DownloadTimesheet;
 import eu.openvalue.timesheet.application.PrepareTimesheetDraft;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
+import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
+import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.Clock;
@@ -23,7 +28,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({AssignmentProperties.class, CurrentProfessionalProperties.class})
+@EnableConfigurationProperties({
+    AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class})
 class TimesheetConfiguration {
 
   @Bean
@@ -71,5 +77,15 @@ class TimesheetConfiguration {
   @Bean
   AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(TimesheetDrafts drafts) {
     return new AdjustTimesheetDay(drafts);
+  }
+
+  @Bean
+  TimesheetSpreadsheet timesheetSpreadsheet(SpreadsheetProperties properties) {
+    return new ExcelTimesheetSpreadsheet(properties.template());
+  }
+
+  @Bean
+  DownloadTimesheetUseCase downloadTimesheetUseCase(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet) {
+    return new DownloadTimesheet(drafts, spreadsheet);
   }
 }

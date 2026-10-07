@@ -140,10 +140,13 @@ h2 {
 .toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
-button.secondary {
+.secondary {
+  text-decoration: none;
+  line-height: normal;
   font: inherit;
   color: var(--accent);
   background: var(--surface);
@@ -153,8 +156,8 @@ button.secondary {
   cursor: pointer;
 }
 
-button.secondary:hover,
-button.secondary:focus-visible {
+.secondary:hover,
+.secondary:focus-visible {
   border-color: var(--accent);
 }
 
