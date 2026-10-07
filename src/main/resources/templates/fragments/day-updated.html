@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* Out-of-band updates after a day changed. Wrapped in templates so htmx can parse table parts like tfoot. */-->
+<th:block th:fragment="day-updated">
+  <template>
+    <tfoot th:replace="~{timesheet :: totals}"></tfoot>
+  </template>
+  <template>
+    <section th:replace="~{timesheet :: warnings}"></section>
+  </template>
+</th:block>
+</body>
+</html>

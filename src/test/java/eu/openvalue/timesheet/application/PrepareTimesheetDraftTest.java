@@ -6,6 +6,7 @@ import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
+import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.domain.Absence;
@@ -38,8 +39,46 @@ class PrepareTimesheetDraftTest {
   private final Assignments assignments = (professional, month) ->
       professional.equals(JAN) ? Optional.of(AT_ACME) : Optional.empty();
 
-  private final PrepareTimesheetDraft prepareDraft =
-      new PrepareTimesheetDraft(new TimesheetPrefill(new DutchPublicHolidays()), absenceRegistry, assignments);
+  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
+
+  private final PrepareTimesheetDraft prepareDraft = new PrepareTimesheetDraft(
+      new TimesheetPrefill(new DutchPublicHolidays()), absenceRegistry, assignments, drafts);
+
+  @Test
+  void keepsTheNewDraft() {
+    // When
+    var timesheet = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(drafts.find(JAN, MAY_2026)).containsSame(timesheet);
+  }
+
+  @Test
+  void givesTheExistingDraftInsteadOfPreparingANewOne() {
+    // Given
+    var existing = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    existing.bookHours(MONDAY, WORKED, Hours.of(2));
+
+    // When
+    var timesheet = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(timesheet.day(MONDAY).hours(WORKED)).isEqualTo(Hours.of(2));
+  }
+
+  @Test
+  void prefillsTheDraftAgainWhenReset() {
+    // Given
+    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026))
+        .bookHours(MONDAY.plusDays(1), WORKED, Hours.of(2));
+
+    // When
+    var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(reset.day(MONDAY.plusDays(1)).hours(WORKED)).isEqualTo(Hours.of(8));
+    assertThat(drafts.find(JAN, MAY_2026)).containsSame(reset);
+  }
 
   @Test
   void draftsTheTimesheetOfTheProfessionalForTheMonth() {

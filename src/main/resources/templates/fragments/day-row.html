@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<table>
+  <tr th:fragment="day-row"
+      th:id="|day-${row.date}|"
+      th:classappend="${(row.weekend ? 'weekend ' : '') + (row.error != null ? 'rejected' : '')}"
+      th:hx-post="@{/timesheets/{month}/days/{date}(month=${row.month},date=${row.date})}"
+      hx-trigger="change" hx-include="this" hx-target="this" hx-swap="outerHTML">
+    <th scope="row" th:text="${row.label}">Mon 4</th>
+    <td th:each="category : ${categories}">
+      <input type="text" class="hours" autocomplete="off"
+             th:id="|${row.date}-${category}|"
+             th:name="|hours-${category}|"
+             th:value="${row.hours.get(category)}"
+             th:aria-label="#{${'category.' + category}} + ' ' + ${row.label}">
+    </td>
+    <td>
+      <input type="text" inputmode="decimal" autocomplete="off" name="kilometres"
+             th:id="|${row.date}-kilometres|"
+             th:value="${row.kilometres}"
+             th:aria-label="|Kilometres ${row.label}|">
+    </td>
+    <td>
+      <input type="text" name="explanation" class="explanation"
+             th:id="|${row.date}-explanation|"
+             th:value="${row.explanation}"
+             th:classappend="${row.lacksExplanation} ? 'needs-attention'"
+             th:aria-label="|Explanation ${row.label}|">
+    </td>
+    <td class="row-error" role="status" th:text="${row.error}"></td>
+  </tr>
+</table>
+</body>
+</html>

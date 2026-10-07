@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.domain;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -71,6 +72,23 @@ public final class Timesheet {
    */
   public void bookHours(LocalDate date, HourCategory category, Hours hours) {
     update(day(date).withHours(category, hours));
+  }
+
+  /**
+   * Replaces all hours booked on a day at once. Categories that are absent or zero are cleared.
+   *
+   * @throws DailyHoursLimitExceededException when the day's total would exceed 24 hours
+   */
+  public void rebookDay(LocalDate date, Map<HourCategory, Hours> hours) {
+    update(day(date).withBookedHours(Objects.requireNonNull(hours, "hours")));
+  }
+
+  public Hours totalHours(HourCategory category) {
+    return days.values().stream().map(day -> day.hours(category)).reduce(Hours.ZERO, Hours::plus);
+  }
+
+  public Kilometres totalKilometres() {
+    return days.values().stream().map(DayEntry::kilometres).reduce(Kilometres.ZERO, Kilometres::plus);
   }
 
   public void recordKilometres(LocalDate date, Kilometres kilometres) {

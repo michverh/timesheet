@@ -9,7 +9,6 @@ import static eu.openvalue.timesheet.domain.HourCategory.TRAINING;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -98,11 +97,11 @@ class TimesheetPrefillTest {
   void booksTheRestOfAPartiallyAbsentDayAsWorked() {
     // When
     var timesheet = prefill.prefill(MAY_2026, PROFESSIONAL, ASSIGNED,
-        List.of(Absence.of(MONDAY, AbsenceType.OTHER, Hours.of(new BigDecimal("2.5")))));
+        List.of(Absence.of(MONDAY, AbsenceType.OTHER, Hours.of(2, 30))));
 
     // Then
     assertThat(timesheet.day(MONDAY).bookedHours())
-        .isEqualTo(Map.of(OTHER, Hours.of(new BigDecimal("2.5")), WORKED, Hours.of(new BigDecimal("5.5"))));
+        .isEqualTo(Map.of(OTHER, Hours.of(2, 30), WORKED, Hours.of(5, 30)));
   }
 
   @Test

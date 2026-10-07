@@ -72,15 +72,21 @@ public final class DayEntry {
     Objects.requireNonNull(newHours, "newHours");
     var updated = new EnumMap<HourCategory, Hours>(HourCategory.class);
     updated.putAll(hours);
-    if (newHours.isZero()) {
-      updated.remove(category);
-    } else {
-      updated.put(category, newHours);
-    }
-    if (total(updated).isGreaterThan(MAXIMUM_DAILY_HOURS)) {
+    updated.put(category, newHours);
+    return withBookedHours(updated);
+  }
+
+  DayEntry withBookedHours(Map<HourCategory, Hours> newHours) {
+    var booked = new EnumMap<HourCategory, Hours>(HourCategory.class);
+    newHours.forEach((category, hours) -> {
+      if (!Objects.requireNonNull(hours, "hours").isZero()) {
+        booked.put(Objects.requireNonNull(category, "category"), hours);
+      }
+    });
+    if (total(booked).isGreaterThan(MAXIMUM_DAILY_HOURS)) {
       throw new DailyHoursLimitExceededException(date, MAXIMUM_DAILY_HOURS);
     }
-    return new DayEntry(date, updated, kilometres, explanation);
+    return new DayEntry(date, booked, kilometres, explanation);
   }
 
   DayEntry withKilometres(Kilometres newKilometres) {

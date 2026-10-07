@@ -1,83 +1,98 @@
 package eu.openvalue.timesheet.domain;
 
-import java.math.BigDecimal;
-import java.util.Objects;
-
 /**
- * A non-negative amount of time booked on a timesheet, in multiples of a quarter of an hour.
+ * A non-negative amount of time booked on a timesheet, precise to the minute.
  */
 public final class Hours implements Comparable<Hours> {
 
-  private static final int QUARTERS_PER_HOUR = 4;
-  private static final BigDecimal QUARTERS_PER_HOUR_DECIMAL = BigDecimal.valueOf(QUARTERS_PER_HOUR);
+  private static final int MINUTES_PER_HOUR = 60;
 
   public static final Hours ZERO = new Hours(0);
 
-  private final int quarters;
+  private final int minutes;
 
-  private Hours(int quarters) {
-    if (quarters < 0) {
+  private Hours(int minutes) {
+    if (minutes < 0) {
       throw new IllegalArgumentException("Hours cannot be negative");
     }
-    this.quarters = quarters;
+    this.minutes = minutes;
   }
 
   public static Hours of(int wholeHours) {
-    return new Hours(Math.multiplyExact(wholeHours, QUARTERS_PER_HOUR));
+    return new Hours(Math.multiplyExact(wholeHours, MINUTES_PER_HOUR));
   }
 
   /**
-   * @throws IllegalArgumentException when the hours are negative or not a multiple of a quarter of an hour
+   * @throws IllegalArgumentException when the minutes are not between 0 and 59, or the result is negative
    */
-  public static Hours of(BigDecimal hours) {
-    Objects.requireNonNull(hours, "hours");
-    var quarters = hours.multiply(QUARTERS_PER_HOUR_DECIMAL);
-    if (quarters.stripTrailingZeros().scale() > 0) {
-      throw new IllegalArgumentException("Hours must be a multiple of a quarter of an hour: " + hours);
+  public static Hours of(int hours, int minutes) {
+    if (minutes < 0 || minutes >= MINUTES_PER_HOUR) {
+      throw new IllegalArgumentException("Minutes must be between 0 and 59: " + minutes);
     }
-    return new Hours(quarters.intValueExact());
+    return new Hours(Math.addExact(Math.multiplyExact(hours, MINUTES_PER_HOUR), minutes));
   }
 
-  public BigDecimal toDecimal() {
-    return BigDecimal.valueOf(quarters).divide(QUARTERS_PER_HOUR_DECIMAL).stripTrailingZeros();
+  public static Hours ofMinutes(int minutes) {
+    return new Hours(minutes);
+  }
+
+  /**
+   * The whole hours, without the remaining minutes: 7 for 7:30.
+   */
+  public int wholeHours() {
+    return minutes / MINUTES_PER_HOUR;
+  }
+
+  /**
+   * The minutes beyond the whole hours: 30 for 7:30.
+   */
+  public int remainingMinutes() {
+    return minutes % MINUTES_PER_HOUR;
+  }
+
+  public int inMinutes() {
+    return minutes;
   }
 
   public Hours plus(Hours other) {
-    return new Hours(Math.addExact(quarters, other.quarters));
+    return new Hours(Math.addExact(minutes, other.minutes));
   }
 
   /**
    * @throws IllegalArgumentException when the other hours exceed these
    */
   public Hours minus(Hours other) {
-    return new Hours(quarters - other.quarters);
+    return new Hours(minutes - other.minutes);
   }
 
   public boolean isZero() {
-    return quarters == 0;
+    return minutes == 0;
   }
 
   public boolean isGreaterThan(Hours other) {
-    return quarters > other.quarters;
+    return minutes > other.minutes;
   }
 
   @Override
   public int compareTo(Hours other) {
-    return Integer.compare(quarters, other.quarters);
+    return Integer.compare(minutes, other.minutes);
   }
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof Hours hours && quarters == hours.quarters;
+    return other instanceof Hours hours && minutes == hours.minutes;
   }
 
   @Override
   public int hashCode() {
-    return Integer.hashCode(quarters);
+    return Integer.hashCode(minutes);
   }
 
+  /**
+   * Formats as hours and minutes, like {@code 7:05}.
+   */
   @Override
   public String toString() {
-    return toDecimal().toPlainString() + "h";
+    return "%d:%02d".formatted(wholeHours(), remainingMinutes());
   }
 }

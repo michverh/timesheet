@@ -5,8 +5,8 @@ import eu.openvalue.timesheet.domain.Timesheet;
 public interface PrepareTimesheetDraftUseCase {
 
   /**
-   * Drafts the timesheet of a professional for a month, prefilled from the standard work week, the public holidays,
-   * the registered absences and the professional's assignment.
+   * Gives the draft timesheet of a professional for a month. When there is none yet, it is prepared first: prefilled
+   * from the standard work week, the public holidays, the registered absences and the professional's assignment.
    */
   Timesheet prepareDraft(PrepareTimesheetDraftCommand command);
 }

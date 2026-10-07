@@ -16,4 +16,9 @@ class KilometresTest {
   void cannotBeNegative() {
     assertThatThrownBy(() -> Kilometres.of(-1)).isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void addsUp() {
+    assertThat(Kilometres.of(42).plus(Kilometres.of(58))).isEqualTo(Kilometres.of(100));
+  }
 }

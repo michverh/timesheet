@@ -1,0 +1,263 @@
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --border: #dcdcd6;
+  --weekend: #efefea;
+  --accent: #2f5d8a;
+  --warning-bg: #fff4d6;
+  --warning-border: #e0b64c;
+  --error-bg: #fde8e6;
+  --error-text: #a3261b;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --surface: #1f1f1d;
+    --text: #ecece8;
+    --muted: #a0a09a;
+    --border: #3a3a36;
+    --weekend: #272725;
+    --accent: #8db7e0;
+    --warning-bg: #3a3016;
+    --warning-border: #8a6d1f;
+    --error-bg: #3d1a17;
+    --error-text: #f2a49c;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+h1, h2 {
+  margin: 0;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  min-width: 10ch;
+  text-align: center;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin-bottom: 20px;
+}
+
+.professional {
+  margin: 4px 0 0;
+}
+
+.muted {
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.month-nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 1.3rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.month-nav a:hover,
+.month-nav a:focus-visible {
+  background: var(--surface);
+}
+
+.assignment {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.assignment dt {
+  color: var(--muted);
+}
+
+.assignment dd {
+  margin: 0;
+}
+
+.banner {
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.banner p, .banner ul {
+  margin: 0;
+}
+
+.banner ul {
+  padding-left: 20px;
+}
+
+.banner.warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+}
+
+.banner.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+button.secondary {
+  font: inherit;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+button.secondary:hover,
+button.secondary:focus-visible {
+  border-color: var(--accent);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.timesheet {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1100px;
+}
+
+.timesheet th,
+.timesheet td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.timesheet thead th {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--muted);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.timesheet tbody th {
+  font-weight: 500;
+  width: 4.5rem;
+}
+
+.timesheet tr.weekend {
+  background: var(--weekend);
+}
+
+.timesheet tfoot th,
+.timesheet tfoot td {
+  font-weight: 600;
+  border-bottom: none;
+  padding: 8px 6px;
+}
+
+.timesheet tfoot td {
+  padding-left: 12px;
+}
+
+.timesheet input {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 5px;
+  width: 3.75rem;
+}
+
+.timesheet input:hover {
+  border-color: var(--border);
+}
+
+.timesheet input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--surface);
+}
+
+.timesheet input.explanation {
+  width: 14rem;
+}
+
+.timesheet tr.rejected input {
+  border-color: var(--error-text);
+}
+
+.timesheet input.needs-attention {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.timesheet .row-error {
+  color: var(--error-text);
+  font-size: 0.85rem;
+  white-space: normal;
+  min-width: 12rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 16px;
+  }
+}

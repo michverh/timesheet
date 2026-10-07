@@ -3,6 +3,9 @@ spring:
     name: timesheet
 
 timesheet:
+  # The professional using the application, until users log in.
+  professional:
+    email: jan.jansen@openvalue.nl
   assignment:
     # Leave the client empty when on the bench.
     client: Example Client

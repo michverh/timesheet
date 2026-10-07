@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="|Timesheet ${page.monthLabel}|">Timesheet</title>
+  <link rel="stylesheet" th:href="@{/css/timesheet.css}">
+  <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
+</head>
+<body>
+<header class="page-header">
+  <div>
+    <h1>Timesheet</h1>
+    <p class="professional">
+      <span th:text="${page.professionalName}">Jan Jansen</span>
+      <span class="muted" th:text="${page.professionalEmail}">jan.jansen@openvalue.nl</span>
+    </p>
+  </div>
+  <nav class="month-nav" aria-label="Month">
+    <a th:href="@{/timesheets/{month}(month=${page.previousMonth})}" aria-label="Previous month">&larr;</a>
+    <h2 th:text="${page.monthLabel}">May 2026</h2>
+    <a th:href="@{/timesheets/{month}(month=${page.nextMonth})}" aria-label="Next month">&rarr;</a>
+  </nav>
+  <dl class="assignment">
+    <th:block th:if="${page.onBench}">
+      <dt>Assignment</dt>
+      <dd>On the bench</dd>
+    </th:block>
+    <th:block th:unless="${page.onBench}">
+      <dt>Client</dt>
+      <dd th:text="${page.client}">ACME</dd>
+      <th:block th:unless="${page.project.isEmpty()}">
+        <dt>Project</dt>
+        <dd th:text="${page.project}">Platform</dd>
+      </th:block>
+    </th:block>
+  </dl>
+</header>
+
+<main>
+  <div id="error-banner" class="banner error" role="alert" hidden></div>
+
+  <section th:fragment="warnings" id="warnings" class="banner warning" aria-live="polite"
+           th:hx-swap-oob="${oob} ? 'true'"
+           th:hidden="${page.daysLackingExplanation.isEmpty()}">
+    <p>Training and other hours need an explanation on:</p>
+    <ul>
+      <li th:each="day : ${page.daysLackingExplanation}" th:text="${day}">Monday 4 May</li>
+    </ul>
+  </section>
+
+  <div class="toolbar">
+    <button type="button" class="secondary"
+            th:hx-post="@{/timesheets/{month}/reset(month=${page.month})}"
+            hx-confirm="Discard all changes to this month and prefill it again from the standard work week, public holidays and registered absences?">
+      Reset to prefilled hours
+    </button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="timesheet">
+      <thead>
+      <tr>
+        <th scope="col">Day</th>
+        <th scope="col" th:each="category : ${categories}" th:text="#{${'category.' + category}}">Worked</th>
+        <th scope="col">Km</th>
+        <th scope="col">Explanation</th>
+        <th scope="col"><span class="visually-hidden">Status</span></th>
+      </tr>
+      </thead>
+      <tbody>
+      <th:block th:each="row : ${page.days}">
+        <tr th:replace="~{fragments/day-row :: day-row}"></tr>
+      </th:block>
+      </tbody>
+      <tfoot th:fragment="totals" id="totals" th:hx-swap-oob="${oob} ? 'true'">
+      <tr>
+        <th scope="row">Total</th>
+        <td th:each="category : ${categories}" th:text="${page.totalHours.get(category)}">168</td>
+        <td th:text="${page.totalKilometres}">0</td>
+        <td colspan="2"></td>
+      </tr>
+      </tfoot>
+    </table>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('htmx:responseError', event => {
+    const banner = document.getElementById('error-banner');
+    banner.textContent = event.detail.xhr.responseText || 'Something went wrong. Please reload the page.';
+    banner.hidden = false;
+  });
+</script>
+</body>
+</html>

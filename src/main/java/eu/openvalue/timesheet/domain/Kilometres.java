@@ -17,6 +17,10 @@ public record Kilometres(int value) {
     return new Kilometres(value);
   }
 
+  public Kilometres plus(Kilometres other) {
+    return new Kilometres(Math.addExact(value, other.value));
+  }
+
   public boolean isZero() {
     return value == 0;
   }

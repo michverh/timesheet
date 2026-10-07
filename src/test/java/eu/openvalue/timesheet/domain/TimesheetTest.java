@@ -7,7 +7,6 @@ import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Map;
@@ -51,12 +50,12 @@ class TimesheetTest {
   }
 
   @Test
-  void booksQuartersOfAnHour() {
+  void booksHoursAndMinutes() {
     // When
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(new BigDecimal("7.75")));
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(7, 41));
 
     // Then
-    assertThat(timesheet.day(A_DAY).totalHours().toDecimal()).isEqualByComparingTo("7.75");
+    assertThat(timesheet.day(A_DAY).totalHours()).isEqualTo(Hours.of(7, 41));
   }
 
   @Test
@@ -195,5 +194,61 @@ class TimesheetTest {
     // When / Then
     assertThatThrownBy(() -> timesheet.submit(LocalDate.of(2028, 3, 2)))
         .isInstanceOf(TimesheetAlreadySubmittedException.class);
+  }
+
+  @Test
+  void rebooksAllHoursOfADayAtOnce() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+
+    // When
+    timesheet.rebookDay(A_DAY, Map.of(LEAVE, Hours.of(6), TRAINING, Hours.of(2)));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(LEAVE, Hours.of(6), TRAINING, Hours.of(2)));
+  }
+
+  @Test
+  void movesAFullDayBetweenCategoriesWhenRebooking() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(20));
+
+    // When
+    timesheet.rebookDay(A_DAY, Map.of(WORKED, Hours.ZERO, LEAVE, Hours.of(20)));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(LEAVE, Hours.of(20)));
+  }
+
+  @Test
+  void keepsTheDayUnchangedWhenRebookingMoreThanTwentyFourHours() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+
+    // When / Then
+    assertThatThrownBy(() -> timesheet.rebookDay(A_DAY, Map.of(WORKED, Hours.of(20), OTHER, Hours.of(5))))
+        .isInstanceOf(DailyHoursLimitExceededException.class);
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
+  }
+
+  @Test
+  void totalsTheHoursPerCategoryOverTheMonthCarryingMinutesIntoHours() {
+    // Given
+    timesheet.bookHours(LocalDate.of(2028, 2, 1), WORKED, Hours.of(7, 40));
+    timesheet.bookHours(LocalDate.of(2028, 2, 2), WORKED, Hours.of(7, 35));
+    timesheet.bookHours(LocalDate.of(2028, 2, 2), LEAVE, Hours.of(0, 25));
+
+    // When / Then
+    assertThat(timesheet.totalHours(WORKED)).isEqualTo(Hours.of(15, 15));
+  }
+
+  @Test
+  void totalsTheKilometresOverTheMonth() {
+    // Given
+    timesheet.recordKilometres(LocalDate.of(2028, 2, 1), Kilometres.of(42));
+    timesheet.recordKilometres(LocalDate.of(2028, 2, 3), Kilometres.of(58));
+
+    // When / Then
+    assertThat(timesheet.totalKilometres()).isEqualTo(Kilometres.of(100));
   }
 }
