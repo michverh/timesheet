@@ -9,8 +9,9 @@ import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
 import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
-import eu.openvalue.timesheet.adapter.out.reading.OllamaClientTimesheetReader;
 import eu.openvalue.timesheet.adapter.out.reading.OllamaProperties;
+import eu.openvalue.timesheet.adapter.out.reading.OllamaTranscriber;
+import eu.openvalue.timesheet.adapter.out.reading.TranscribingClientTimesheetReader;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
@@ -119,7 +120,8 @@ class TimesheetConfiguration {
 
   @Bean
   ClientTimesheetReader clientTimesheetReader(OllamaProperties properties) {
-    return OllamaClientTimesheetReader.connectingTo(properties.baseUrl(), properties.model(), properties.timeout());
+    return new TranscribingClientTimesheetReader(
+        OllamaTranscriber.connectingTo(properties.baseUrl(), properties.model(), properties.timeout()));
   }
 
   @Bean
