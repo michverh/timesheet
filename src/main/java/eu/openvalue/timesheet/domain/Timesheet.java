@@ -1,13 +1,13 @@
 package eu.openvalue.timesheet.domain;
 
+import eu.openvalue.timesheet.domain.SubmissionState.Draft;
+import eu.openvalue.timesheet.domain.SubmissionState.Submitted;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 /**
  * A professional's monthly account of hours, kilometres and explanations, with exactly one entry for every day of
@@ -17,17 +17,16 @@ public final class Timesheet {
 
   private final YearMonth month;
   private final Professional professional;
-  private final SortedMap<LocalDate, DayEntry> days = new TreeMap<>();
   private Assignment assignment;
-  private LocalDate submittedOn;
-  private LocalDate previouslySubmittedOn;
+  private MonthOfDays days;
+  private SubmissionState submission = Draft.NEW;
   private boolean registeredAbsencesUnknown;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
     this.month = month;
     this.professional = professional;
     this.assignment = assignment;
-    month.atDay(1).datesUntil(month.atEndOfMonth().plusDays(1)).forEach(date -> days.put(date, DayEntry.empty(date)));
+    this.days = MonthOfDays.emptyFor(month);
   }
 
   /**
@@ -59,11 +58,14 @@ public final class Timesheet {
   }
 
   public List<DayEntry> days() {
-    return List.copyOf(days.values());
+    return days.all();
   }
 
+  /**
+   * @throws IllegalArgumentException when the date is not part of the month
+   */
   public DayEntry day(LocalDate date) {
-    return days.get(requireInMonth(date));
+    return days.day(date);
   }
 
   /**
@@ -85,14 +87,6 @@ public final class Timesheet {
     update(day(date).withBookedHours(Objects.requireNonNull(hours, "hours")));
   }
 
-  public Hours totalHours(HourCategory category) {
-    return days.values().stream().map(day -> day.hours(category)).reduce(Hours.ZERO, Hours::plus);
-  }
-
-  public Kilometres totalKilometres() {
-    return days.values().stream().map(DayEntry::kilometres).reduce(Kilometres.ZERO, Kilometres::plus);
-  }
-
   public void recordKilometres(LocalDate date, Kilometres kilometres) {
     update(day(date).withKilometres(kilometres));
   }
@@ -105,11 +99,19 @@ public final class Timesheet {
     update(day(date).withExplanation(null));
   }
 
+  public Hours totalHours(HourCategory category) {
+    return days.totalHours(category);
+  }
+
+  public Kilometres totalKilometres() {
+    return days.totalKilometres();
+  }
+
   /**
    * The days with hours in a category that asks for an explanation, but without one.
    */
   public List<LocalDate> daysLackingRequiredExplanation() {
-    return days.values().stream().filter(DayEntry::lacksRequiredExplanation).map(DayEntry::date).toList();
+    return days.daysLackingRequiredExplanation();
   }
 
   /**
@@ -120,61 +122,14 @@ public final class Timesheet {
    */
   public void restartFrom(Timesheet prepared) {
     Objects.requireNonNull(prepared, "prepared");
-    requireNotSubmitted();
+    requireDraft();
     if (!prepared.month.equals(month) || !prepared.professional.equals(professional)) {
       throw new IllegalArgumentException("Can only restart from a timesheet of %s for %s".formatted(
           professional.email(), month));
     }
     assignment = prepared.assignment;
-    days.clear();
-    days.putAll(prepared.days);
+    days = prepared.days;
     registeredAbsencesUnknown = prepared.registeredAbsencesUnknown;
-  }
-
-  /**
-   * Checks whether the timesheet can be submitted, without submitting it.
-   *
-   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
-   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
-   */
-  public void ensureSubmittableOn(LocalDate today) {
-    Objects.requireNonNull(today, "today");
-    requireNotSubmitted();
-    if (month.isAfter(YearMonth.from(today))) {
-      throw new FutureMonthNotSubmittableException(month);
-    }
-  }
-
-  /**
-   * Submits the timesheet, after which it can no longer be changed until it is reopened for correction.
-   *
-   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
-   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
-   */
-  public void submit(LocalDate today) {
-    ensureSubmittableOn(today);
-    submittedOn = today;
-  }
-
-  /**
-   * Makes a submitted timesheet changeable again, so it can be corrected and submitted once more.
-   *
-   * @throws TimesheetNotSubmittedException when the timesheet has not been submitted
-   */
-  public void reopenForCorrection() {
-    if (!isSubmitted()) {
-      throw new TimesheetNotSubmittedException(month);
-    }
-    previouslySubmittedOn = submittedOn;
-    submittedOn = null;
-  }
-
-  public boolean isSubmitted() {
-    return submittedOn != null;
-  }
-
-  public Optional<LocalDate> submittedOn() {
-    return Optional.ofNullable(submittedOn);
   }
 
   /**
@@ -190,28 +145,66 @@ public final class Timesheet {
   }
 
   /**
+   * Checks whether the timesheet can be submitted, without submitting it.
+   *
+   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
+   */
+  public void ensureSubmittableOn(LocalDate today) {
+    Objects.requireNonNull(today, "today");
+    requireDraft();
+    if (month.isAfter(YearMonth.from(today))) {
+      throw new FutureMonthNotSubmittableException(month);
+    }
+  }
+
+  /**
+   * Submits the timesheet, after which it can no longer be changed until it is reopened for correction.
+   *
+   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
+   */
+  public void submit(LocalDate today) {
+    ensureSubmittableOn(today);
+    submission = requireDraft().submit(today);
+  }
+
+  /**
+   * Makes a submitted timesheet changeable again, so it can be corrected and submitted once more.
+   *
+   * @throws TimesheetNotSubmittedException when the timesheet has not been submitted
+   */
+  public void reopenForCorrection() {
+    if (!(submission instanceof Submitted submitted)) {
+      throw new TimesheetNotSubmittedException(month);
+    }
+    submission = submitted.reopen();
+  }
+
+  public boolean isSubmitted() {
+    return submission instanceof Submitted;
+  }
+
+  public Optional<LocalDate> submittedOn() {
+    return submission instanceof Submitted submitted ? Optional.of(submitted.on()) : Optional.empty();
+  }
+
+  /**
    * When the timesheet was last submitted before it was reopened for correction, if it ever was.
    */
   public Optional<LocalDate> previouslySubmittedOn() {
-    return Optional.ofNullable(previouslySubmittedOn);
+    return submission.previouslySubmittedOn();
   }
 
   private void update(DayEntry entry) {
-    requireNotSubmitted();
-    days.put(entry.date(), entry);
+    requireDraft();
+    days = days.with(entry);
   }
 
-  private void requireNotSubmitted() {
-    if (isSubmitted()) {
-      throw new TimesheetAlreadySubmittedException(month);
+  private Draft requireDraft() {
+    if (submission instanceof Draft draft) {
+      return draft;
     }
-  }
-
-  private LocalDate requireInMonth(LocalDate date) {
-    Objects.requireNonNull(date, "date");
-    if (!YearMonth.from(date).equals(month)) {
-      throw new IllegalArgumentException("%s is not part of the timesheet for %s".formatted(date, month));
-    }
-    return date;
+    throw new TimesheetAlreadySubmittedException(month);
   }
 }
