@@ -5,11 +5,14 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
+import eu.openvalue.timesheet.application.port.out.AbsenceRegistryUnavailableException;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.time.YearMonth;
 import java.util.Objects;
 
@@ -17,6 +20,8 @@ import java.util.Objects;
  * Prepares prefilled drafts: once when a draft is first needed, and again when the professional resets it.
  */
 public final class PreparingTimesheetDraft implements PrepareTimesheetDraftUseCase, ResetTimesheetDraftUseCase {
+
+  private static final Logger LOGGER = System.getLogger(PreparingTimesheetDraft.class.getName());
 
   private final TimesheetPrefill prefill;
   private final AbsenceRegistry absenceRegistry;
@@ -58,8 +63,18 @@ public final class PreparingTimesheetDraft implements PrepareTimesheetDraftUseCa
     return draft;
   }
 
+  /**
+   * Prefills the month from the registered absences, or as if there were none when the registry cannot be reached,
+   * so the professional can still fill in their timesheet.
+   */
   private Timesheet prefilled(Professional professional, YearMonth month) {
-    return prefill.prefill(month, professional, assignments.assignmentOf(professional, month),
-        absenceRegistry.absencesOf(professional, month));
+    var assignment = assignments.assignmentOf(professional, month);
+    try {
+      return prefill.prefill(month, professional, assignment, absenceRegistry.absencesOf(professional, month));
+    } catch (AbsenceRegistryUnavailableException e) {
+      LOGGER.log(Level.WARNING, "Prefilling the timesheet of %s for %s without registered absences"
+          .formatted(professional.email(), month), e);
+      return prefill.prefillWithoutRegisteredAbsences(month, professional, assignment);
+    }
   }
 }

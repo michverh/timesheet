@@ -176,4 +176,23 @@ class TimesheetPrefillTest {
     // Then
     assertThat(timesheet.day(MONDAY).explanation()).isEmpty();
   }
+
+  @Test
+  void knowsTheRegisteredAbsencesWhenGivenThem() {
+    // When
+    var timesheet = prefill.prefill(MAY_2026, PROFESSIONAL, ASSIGNED, List.of());
+
+    // Then
+    assertThat(timesheet.registeredAbsencesUnknown()).isFalse();
+  }
+
+  @Test
+  void draftsARegularMonthWithoutRegisteredAbsences() {
+    // When
+    var timesheet = prefill.prefillWithoutRegisteredAbsences(MAY_2026, PROFESSIONAL, ASSIGNED);
+
+    // Then
+    assertThat(timesheet.day(MONDAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
+    assertThat(timesheet.registeredAbsencesUnknown()).isTrue();
+  }
 }

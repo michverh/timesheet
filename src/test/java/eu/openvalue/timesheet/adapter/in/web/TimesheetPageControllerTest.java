@@ -12,7 +12,10 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import eu.openvalue.timesheet.domain.DutchPublicHolidays;
+import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -100,6 +103,32 @@ class TimesheetPageControllerTest {
     assertThat(response).hasStatusOk().bodyText()
         .contains("You are correcting the timesheet submitted on", "1 June 2026", "Submit correction")
         .doesNotContain("Make a correction");
+  }
+
+  @Test
+  void warnsThatLeaveAndSicknessMayBeMissingWhenTheAbsencesWereUnknown() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(new TimesheetPrefill(new DutchPublicHolidays())
+        .prefillWithoutRegisteredAbsences(MAY_2026, JAN, Optional.empty()));
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("absence registry could not be reached", "no leave or sickness has been filled");
+  }
+
+  @Test
+  void doesNotWarnAboutAbsencesWhenTheyWereKnown() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft());
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText().doesNotContain("absence registry could not be reached");
   }
 
   @Test

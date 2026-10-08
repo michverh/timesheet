@@ -6,19 +6,18 @@ import java.util.regex.Pattern;
 
 /**
  * How hours are entered and shown on the page: as hours and minutes ({@code 7:30}), whole hours ({@code 8}) or
- * decimal hours that amount to whole minutes ({@code 7.5} or {@code 7,5}).
+ * decimal hours ({@code 7.5} or {@code 7,5}, rounded to the nearest minute).
  */
 final class HoursFormat {
 
   private static final Pattern HOURS_AND_MINUTES = Pattern.compile("(\\d{1,3}):(\\d{1,2})");
   private static final Pattern DECIMAL_HOURS = Pattern.compile("\\d{1,3}([.,]\\d+)?");
-  private static final BigDecimal MINUTES_PER_HOUR = BigDecimal.valueOf(60);
 
   private HoursFormat() {
   }
 
   /**
-   * @throws IllegalArgumentException when the text is not a non-negative amount of whole minutes
+   * @throws IllegalArgumentException when the text is not a non-negative amount of hours
    */
   static Hours parse(String text) {
     var input = text.strip();
@@ -27,12 +26,7 @@ final class HoursFormat {
       return Hours.of(Integer.parseInt(hoursAndMinutes.group(1)), Integer.parseInt(hoursAndMinutes.group(2)));
     }
     if (DECIMAL_HOURS.matcher(input).matches()) {
-      var minutes = new BigDecimal(input.replace(',', '.')).multiply(MINUTES_PER_HOUR);
-      try {
-        return Hours.ofMinutes(minutes.intValueExact());
-      } catch (ArithmeticException e) {
-        throw new IllegalArgumentException("Not a whole number of minutes: " + text, e);
-      }
+      return Hours.ofDecimalHours(new BigDecimal(input.replace(',', '.')));
     }
     throw new IllegalArgumentException("Not an amount of hours: " + text);
   }

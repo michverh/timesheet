@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
+import eu.openvalue.timesheet.application.port.out.AbsenceRegistryUnavailableException;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.domain.Absence;
 import eu.openvalue.timesheet.domain.AbsenceType;
@@ -104,6 +105,41 @@ class PreparingTimesheetDraftTest {
 
     // Then
     assertThat(reset.previouslySubmittedOn()).contains(LocalDate.of(2026, 6, 1));
+  }
+
+  @Test
+  void prefillsAsIfThereWereNoAbsencesWhenTheRegistryCannotBeReached() {
+    // Given
+    var preparing = new PreparingTimesheetDraft(
+        new TimesheetPrefill(new DutchPublicHolidays()), unreachableRegistry(), assignments, drafts);
+
+    // When
+    var draft = preparing.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(draft.day(MONDAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
+    assertThat(draft.registeredAbsencesUnknown()).isTrue();
+    assertThat(drafts.find(JAN, MAY_2026)).containsSame(draft);
+  }
+
+  @Test
+  void prefillsTheRegisteredAbsencesWhenResetOnceTheRegistryIsReachableAgain() {
+    // Given
+    new PreparingTimesheetDraft(new TimesheetPrefill(new DutchPublicHolidays()), unreachableRegistry(), assignments,
+        drafts).prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+
+    // When
+    var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(reset.day(MONDAY).bookedHours()).isEqualTo(Map.of(LEAVE, Hours.of(8)));
+    assertThat(reset.registeredAbsencesUnknown()).isFalse();
+  }
+
+  private static AbsenceRegistry unreachableRegistry() {
+    return (professional, month) -> {
+      throw new AbsenceRegistryUnavailableException("Registry down", null);
+    };
   }
 
   @Test

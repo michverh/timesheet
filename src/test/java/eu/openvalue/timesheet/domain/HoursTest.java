@@ -3,8 +3,10 @@ package eu.openvalue.timesheet.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class HoursTest {
@@ -49,6 +51,41 @@ class HoursTest {
   @Test
   void cannotSubtractMoreThanItHas() {
     assertThatThrownBy(() -> Hours.of(2).minus(Hours.of(2, 1))).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "8,      480",
+      "7.5,    450",
+      "0.25,   15",
+      "7.3333, 440",
+      "0.0083, 0",
+      "0.0084, 1"
+  })
+  void readsDecimalHoursRoundedToTheNearestMinute(BigDecimal hours, int minutes) {
+    assertThat(Hours.ofDecimalHours(hours)).isEqualTo(Hours.ofMinutes(minutes));
+  }
+
+  @Test
+  void cannotBeReadFromNegativeDecimalHours() {
+    assertThatThrownBy(() -> Hours.ofDecimalHours(new BigDecimal("-0.5")))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeReadFromMoreDecimalHoursThanFitInMinutes() {
+    assertThatThrownBy(() -> Hours.ofDecimalHours(new BigDecimal("1E12"))).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "480, 8",
+      "450, 7.5",
+      "440, 7.3333333333",
+      "0,   0"
+  })
+  void convertsToDecimalHours(int minutes, BigDecimal hours) {
+    assertThat(Hours.ofMinutes(minutes).toDecimalHours()).isEqualByComparingTo(hours);
   }
 
   @Test

@@ -32,6 +32,7 @@
     <archunit.version>1.5.1</archunit.version>
     <htmx.version>2.0.11</htmx.version>
     <poi.version>5.5.1</poi.version>
+    <wiremock.version>3.13.2</wiremock.version>
   </properties>
   <dependencies>
     <dependency>
@@ -75,6 +76,12 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>${wiremock.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>

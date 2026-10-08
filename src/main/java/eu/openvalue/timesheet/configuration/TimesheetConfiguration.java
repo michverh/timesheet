@@ -2,6 +2,8 @@ package eu.openvalue.timesheet.configuration;
 
 import eu.openvalue.timesheet.adapter.in.web.CurrentProfessional;
 import eu.openvalue.timesheet.adapter.in.web.CurrentProfessionalProperties;
+import eu.openvalue.timesheet.adapter.out.absence.AbsenceRegistryProperties;
+import eu.openvalue.timesheet.adapter.out.absence.HttpAbsenceRegistry;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
@@ -29,7 +31,6 @@ import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.Clock;
 import java.time.ZoneId;
-import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,7 +39,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
-    TimesheetMailProperties.class})
+    TimesheetMailProperties.class, AbsenceRegistryProperties.class})
 class TimesheetConfiguration {
 
   @Bean
@@ -61,12 +62,9 @@ class TimesheetConfiguration {
     return new ConfiguredAssignments(properties);
   }
 
-  /**
-   * Registers no absences at all, until the HTTP adapter for the absence registry is available.
-   */
   @Bean
-  AbsenceRegistry absenceRegistry() {
-    return (professional, month) -> List.of();
+  AbsenceRegistry absenceRegistry(AbsenceRegistryProperties properties) {
+    return HttpAbsenceRegistry.connectingTo(properties.baseUrl(), properties.timeout());
   }
 
   @Bean

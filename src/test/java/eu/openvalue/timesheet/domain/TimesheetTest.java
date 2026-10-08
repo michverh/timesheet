@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -355,5 +356,18 @@ class TimesheetTest {
     assertThatThrownBy(() -> timesheet.restartFrom(
         Timesheet.start(FEBRUARY_2028.plusMonths(1), PROFESSIONAL, Optional.empty())))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void knowsTheRegisteredAbsencesAgainOnceRestartedFromATimesheetThatDoes() {
+    // Given
+    var prefill = new TimesheetPrefill(new DutchPublicHolidays());
+    var draft = prefill.prefillWithoutRegisteredAbsences(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
+
+    // When
+    draft.restartFrom(prefill.prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty(), List.of()));
+
+    // Then
+    assertThat(draft.registeredAbsencesUnknown()).isFalse();
   }
 }

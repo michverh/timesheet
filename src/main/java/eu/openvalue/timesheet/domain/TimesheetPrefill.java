@@ -44,6 +44,17 @@ public final class TimesheetPrefill {
     return timesheet;
   }
 
+  /**
+   * Drafts a timesheet when the absences HR registered cannot be known, as if there were none. The timesheet remembers
+   * this, so leave and sickness can be checked by hand.
+   */
+  public Timesheet prefillWithoutRegisteredAbsences(YearMonth month, Professional professional,
+      Optional<Assignment> assignment) {
+    var timesheet = prefill(month, professional, assignment, List.of());
+    timesheet.markRegisteredAbsencesUnknown();
+    return timesheet;
+  }
+
   private void prefillWeekday(Timesheet timesheet, LocalDate date, List<Absence> absences) {
     if (publicHolidays.isPublicHoliday(date)) {
       timesheet.bookHours(date, HourCategory.PUBLIC_HOLIDAY, STANDARD_WORKDAY);

@@ -1,12 +1,20 @@
 spring:
   application:
     name: timesheet
+  docker:
+    compose:
+      start:
+        # Also start services added to compose.yaml when others are already running.
+        skip: never
   # Mailpit from compose.yaml catches all mail; see http://localhost:8025
   mail:
     host: localhost
     port: 1025
 
 timesheet:
+  # HR's absence registry; locally the WireMock stub from compose.yaml.
+  absence-registry:
+    base-url: http://localhost:8090
   # The professional using the application, until users log in.
   professional:
     email: jan.jansen@openvalue.nl

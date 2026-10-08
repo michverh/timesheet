@@ -49,7 +49,7 @@ class DayFormTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"abc", "-1", "7:75", "7.33"})
+  @ValueSource(strings = {"abc", "-1", "7:75", "7,5h"})
   void rejectsHoursThatAreNotPositiveHoursAndMinutes(String hours) {
     assertThatThrownBy(() -> form("hours-WORKED", hours).toCommand(JAN, MONDAY))
         .isInstanceOf(InvalidDayInputException.class)

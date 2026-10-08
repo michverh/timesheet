@@ -49,6 +49,11 @@
     </ul>
   </section>
 
+  <section class="banner warning" th:if="${page.registeredAbsencesUnknown and !page.submitted}">
+    HR's absence registry could not be reached when this month was prefilled, so no leave or sickness has been filled
+    in. Check those days yourself, or reset to the prefilled hours to try the registry again.
+  </section>
+
   <section class="banner info" th:if="${page.submitted}">
     Submitted to HR on <strong th:text="${page.submittedOn.orElse('')}">7 October 2026</strong>.
     It can no longer be changed; make a correction to change it and submit it again.

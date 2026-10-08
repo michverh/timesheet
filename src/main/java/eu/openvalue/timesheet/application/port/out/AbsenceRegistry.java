@@ -11,5 +11,10 @@ import java.util.List;
 @FunctionalInterface
 public interface AbsenceRegistry {
 
+  /**
+   * @return the absences registered for the professional during the month; none when HR does not know the
+   *     professional
+   * @throws AbsenceRegistryUnavailableException when the registered absences cannot be retrieved
+   */
   List<Absence> absencesOf(Professional professional, YearMonth month);
 }

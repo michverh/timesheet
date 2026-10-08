@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/professionals/[^/]+/absences",
+    "queryParameters": {
+      "month": { "matches": "[0-9]{4}-[0-9]{2}" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "professionalId": "{{request.pathSegments.[1]}}",
+      "month": "{{request.query.month}}",
+      "absences": [
+        { "date": "{{request.query.month}}-07", "type": "LEAVE", "hours": 8 },
+        { "date": "{{request.query.month}}-14", "type": "OTHER", "hours": 2.5, "description": "Doctor appointment" },
+        { "date": "{{request.query.month}}-21", "type": "SPECIAL_LEAVE", "hours": 8 },
+        { "date": "{{request.query.month}}-22", "type": "SICK", "hours": 4 }
+      ]
+    }
+  }
+}

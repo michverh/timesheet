@@ -19,7 +19,8 @@ import java.util.Optional;
  */
 public record TimesheetPage(String professionalName, String professionalEmail, YearMonth month, String monthLabel,
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
-    List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn) {
+    List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
+    boolean registeredAbsencesUnknown) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
@@ -43,7 +44,8 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         DayRow.format(timesheet.totalKilometres()),
         timesheet.daysLackingRequiredExplanation().stream().map(DAY_LABEL::format).toList(),
         timesheet.submittedOn().map(DATE_LABEL::format),
-        timesheet.previouslySubmittedOn().map(DATE_LABEL::format));
+        timesheet.previouslySubmittedOn().map(DATE_LABEL::format),
+        timesheet.registeredAbsencesUnknown());
   }
 
   Optional<DayRow> day(LocalDate date) {

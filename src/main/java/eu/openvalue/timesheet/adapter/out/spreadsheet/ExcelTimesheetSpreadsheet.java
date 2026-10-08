@@ -5,7 +5,6 @@ import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.DayEntry;
 import eu.openvalue.timesheet.domain.HourCategory;
-import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -40,7 +39,6 @@ public final class ExcelTimesheetSpreadsheet implements TimesheetSpreadsheet {
   private static final Map<HourCategory, String> HOURS_COLUMNS = hoursColumns();
   private static final String KILOMETRES_COLUMN = "L";
   private static final String EXPLANATION_COLUMN = "M";
-  private static final double MINUTES_PER_HOUR = 60.0;
 
   private final Resource template;
 
@@ -80,16 +78,12 @@ public final class ExcelTimesheetSpreadsheet implements TimesheetSpreadsheet {
   private static void fillDay(Sheet sheet, DayEntry day) {
     var row = FIRST_DAY_ROW + day.date().getDayOfMonth() - 1;
     day.bookedHours().forEach((category, hours) ->
-        cell(sheet, HOURS_COLUMNS.get(category) + row).setCellValue(decimalHours(hours)));
+        cell(sheet, HOURS_COLUMNS.get(category) + row).setCellValue(hours.toDecimalHours().doubleValue()));
     if (!day.kilometres().isZero()) {
       cell(sheet, KILOMETRES_COLUMN + row).setCellValue(day.kilometres().value());
     }
     day.explanation().ifPresent(explanation ->
         cell(sheet, EXPLANATION_COLUMN + row).setCellValue(explanation.text()));
-  }
-
-  private static double decimalHours(Hours hours) {
-    return hours.inMinutes() / MINUTES_PER_HOUR;
   }
 
   private static Cell cell(Sheet sheet, String reference) {

@@ -1,11 +1,17 @@
 package eu.openvalue.timesheet.domain;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Objects;
+
 /**
  * A non-negative amount of time booked on a timesheet, precise to the minute.
  */
 public final class Hours implements Comparable<Hours> {
 
   private static final int MINUTES_PER_HOUR = 60;
+  private static final BigDecimal MINUTES_PER_HOUR_DECIMAL = BigDecimal.valueOf(MINUTES_PER_HOUR);
+  private static final int DECIMAL_HOURS_SCALE = 10;
 
   public static final Hours ZERO = new Hours(0);
 
@@ -34,6 +40,29 @@ public final class Hours implements Comparable<Hours> {
 
   public static Hours ofMinutes(int minutes) {
     return new Hours(minutes);
+  }
+
+  /**
+   * Hours given as a decimal number, rounded to the nearest minute: 7.5 is 7:30, and 7.3333 is 7:20.
+   *
+   * @throws IllegalArgumentException when the hours are negative or too large
+   */
+  public static Hours ofDecimalHours(BigDecimal hours) {
+    Objects.requireNonNull(hours, "hours");
+    try {
+      return new Hours(hours.multiply(MINUTES_PER_HOUR_DECIMAL).setScale(0, RoundingMode.HALF_UP).intValueExact());
+    } catch (ArithmeticException e) {
+      throw new IllegalArgumentException("Too many hours: " + hours, e);
+    }
+  }
+
+  /**
+   * These hours as a decimal number: 7.5 for 7:30, and 7.3333333333 for 7:20.
+   */
+  public BigDecimal toDecimalHours() {
+    return BigDecimal.valueOf(minutes)
+        .divide(MINUTES_PER_HOUR_DECIMAL, DECIMAL_HOURS_SCALE, RoundingMode.HALF_UP)
+        .stripTrailingZeros();
   }
 
   /**

@@ -21,14 +21,15 @@ class HoursFormatTest {
       "7.5,   450",
       "'7,5', 450",
       "1.25,  75",
-      "0.1,   6"
+      "0.1,   6",
+      "7.33,  440"
   })
-  void readsHoursAndMinutesWholeHoursOrDecimalHours(String text, int minutes) {
+  void readsHoursAndMinutesWholeHoursOrDecimalHoursRoundedToTheMinute(String text, int minutes) {
     assertThat(HoursFormat.parse(text)).isEqualTo(Hours.ofMinutes(minutes));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"7:60", "7:", ":30", "-1", "7.33", "abc", "7h30", "1:2:3"})
+  @ValueSource(strings = {"7:60", "7:", ":30", "-1", "-0.5", "abc", "7h30", "1:2:3"})
   void rejectsAnythingElse(String text) {
     assertThatThrownBy(() -> HoursFormat.parse(text)).isInstanceOf(IllegalArgumentException.class);
   }

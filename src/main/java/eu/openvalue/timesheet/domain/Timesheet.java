@@ -21,6 +21,7 @@ public final class Timesheet {
   private Assignment assignment;
   private LocalDate submittedOn;
   private LocalDate previouslySubmittedOn;
+  private boolean registeredAbsencesUnknown;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
     this.month = month;
@@ -127,6 +128,7 @@ public final class Timesheet {
     assignment = prepared.assignment;
     days.clear();
     days.putAll(prepared.days);
+    registeredAbsencesUnknown = prepared.registeredAbsencesUnknown;
   }
 
   /**
@@ -173,6 +175,18 @@ public final class Timesheet {
 
   public Optional<LocalDate> submittedOn() {
     return Optional.ofNullable(submittedOn);
+  }
+
+  /**
+   * Whether the timesheet was prefilled without knowing the absences HR registered, so leave and sickness may be
+   * missing.
+   */
+  public boolean registeredAbsencesUnknown() {
+    return registeredAbsencesUnknown;
+  }
+
+  void markRegisteredAbsencesUnknown() {
+    registeredAbsencesUnknown = true;
   }
 
   /**
