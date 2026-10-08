@@ -436,6 +436,78 @@ class TimesheetTest {
     assertThat(timesheet.clientTimesheet()).isPresent();
   }
 
+  @Test
+  void comparesTheHoursWorkedWithTheHoursReportedByTheClient() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+
+    // When
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(7, 30))));
+
+    // Then
+    assertThat(timesheet.differencesWithClientTimesheet())
+        .containsExactly(new HoursDifference(A_DAY, Hours.of(8), Hours.of(7, 30)));
+  }
+
+  @Test
+  void comparesAgainAfterAdjustingTheHoursWorked() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(7, 30))));
+
+    // When
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(7, 30));
+
+    // Then
+    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
+  }
+
+  @Test
+  void hasNoDifferencesWithAClientsTimesheetThatHasNotBeenRead() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+
+    // When
+    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+
+    // Then
+    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
+  }
+
+  @Test
+  void forgetsTheReadingOfAReplacedClientsTimesheet() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(8))));
+
+    // When
+    timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
+
+    // Then
+    assertThat(timesheet.hoursReportedByClient()).isEmpty();
+  }
+
+  @Test
+  void remembersThatTheClientsTimesheetCouldNotBeRead() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("scribbles.png"));
+
+    // When
+    timesheet.markClientTimesheetUnreadable();
+
+    // Then
+    assertThat(timesheet.isClientTimesheetUnreadable()).isTrue();
+    assertThat(timesheet.hoursReportedByClient()).isEmpty();
+  }
+
+  @Test
+  void needsAClientsTimesheetToRecordWhatItReports() {
+    assertThatThrownBy(() -> timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of())))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
   private static ClientTimesheetDocument clientTimesheet(String fileName) {
     return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, new byte[] {1, 2, 3});
   }

@@ -25,6 +25,11 @@ timesheet:
   # HR's absence registry; locally the WireMock stub from compose.yaml.
   absence-registry:
     base-url: http://localhost:8090
+  # Reads the hours from clients' timesheets; locally a vision model in Ollama.
+  client-timesheet-reader:
+    ollama:
+      base-url: http://localhost:11434
+      model: qwen3-vl:8b-instruct
   # The professional using the application, until users log in.
   professional:
     email: jan.jansen@openvalue.nl

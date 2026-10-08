@@ -12,12 +12,15 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import eu.openvalue.timesheet.domain.ClientReportedHours;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
+import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -163,6 +166,44 @@ class TimesheetPageControllerTest {
     assertThat(response).hasStatusOk().bodyText()
         .contains("<strong>acme-may.pdf</strong>", ">Replace</button>")
         .doesNotContain("has not been uploaded yet");
+  }
+
+  @Test
+  void showsTheHoursTheClientReportedAndWhereTheyDiffer() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2026, 5, 4), Hours.of(8),
+        LocalDate.of(2026, 5, 5), Hours.of(7, 30))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .containsPattern("id=\"day-2026-05-04\"(?s).*?<td class=\"client-hours\">8</td>")
+        .containsPattern("id=\"day-2026-05-05\"(?s).*?<td class=\"client-hours differs\">7:30</td>")
+        .contains("The client's timesheet shows other hours worked on:",
+            "Tuesday 5 May: 8 worked, 7:30 according to the client")
+        .doesNotContain("Monday 4 May: 8 worked");
+  }
+
+  @Test
+  void asksToCompareByHandWhenTheClientsTimesheetCouldNotBeRead() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF, new byte[] {1}));
+    draft.markClientTimesheetUnreadable();
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("<span>acme.pdf</span> could not be read automatically");
   }
 
   @Test

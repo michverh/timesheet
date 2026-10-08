@@ -22,6 +22,8 @@ public final class Timesheet {
   private SubmissionState submission = Draft.NEW;
   private boolean registeredAbsencesUnknown;
   private ClientTimesheetDocument clientTimesheet;
+  private ClientReportedHours hoursReportedByClient;
+  private boolean clientTimesheetUnreadable;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
     this.month = month;
@@ -124,6 +126,48 @@ public final class Timesheet {
     Objects.requireNonNull(document, "document");
     requireDraft();
     clientTimesheet = document;
+    hoursReportedByClient = null;
+    clientTimesheetUnreadable = false;
+  }
+
+  /**
+   * Records the hours worked as read from the client's timesheet, so they can be compared with the hours booked.
+   *
+   * @throws IllegalStateException when no client's timesheet has been handed in
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
+   */
+  public void recordHoursReportedByClient(ClientReportedHours reported) {
+    Objects.requireNonNull(reported, "reported");
+    requireClientTimesheet();
+    hoursReportedByClient = reported;
+    clientTimesheetUnreadable = false;
+  }
+
+  /**
+   * Records that the hours worked could not be read from the client's timesheet, so they need to be compared by hand.
+   *
+   * @throws IllegalStateException when no client's timesheet has been handed in
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
+   */
+  public void markClientTimesheetUnreadable() {
+    requireClientTimesheet();
+    hoursReportedByClient = null;
+    clientTimesheetUnreadable = true;
+  }
+
+  public Optional<ClientReportedHours> hoursReportedByClient() {
+    return Optional.ofNullable(hoursReportedByClient);
+  }
+
+  public boolean isClientTimesheetUnreadable() {
+    return clientTimesheetUnreadable;
+  }
+
+  /**
+   * The days on which the hours booked as worked differ from the client's timesheet; none when it has not been read.
+   */
+  public List<HoursDifference> differencesWithClientTimesheet() {
+    return hoursReportedByClient().map(reported -> reported.differencesWith(days)).orElse(List.of());
   }
 
   public Optional<ClientTimesheetDocument> clientTimesheet() {
@@ -222,6 +266,13 @@ public final class Timesheet {
   private void update(DayEntry entry) {
     requireDraft();
     days = days.with(entry);
+  }
+
+  private void requireClientTimesheet() {
+    requireDraft();
+    if (clientTimesheet == null) {
+      throw new IllegalStateException("No client's timesheet has been handed in for " + month);
+    }
   }
 
   private Draft requireDraft() {

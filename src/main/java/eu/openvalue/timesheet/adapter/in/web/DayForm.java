@@ -51,7 +51,7 @@ record DayForm(Map<HourCategory, String> hours, String kilometres, String explan
       return Hours.ZERO;
     }
     try {
-      return HoursFormat.parse(input);
+      return Hours.parse(input);
     } catch (IllegalArgumentException e) {
       throw new InvalidDayInputException(
           "Enter %s hours as hours and minutes, like 7:30".formatted(label(category)));

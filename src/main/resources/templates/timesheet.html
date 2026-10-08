@@ -59,6 +59,22 @@
     submit without it, but HR usually wants it alongside.
   </section>
 
+  <section th:fragment="client-differences" id="client-differences" class="banner warning" aria-live="polite"
+           th:hx-swap-oob="${oob} ? 'true'"
+           th:hidden="${page.differencesWithClient.isEmpty() or page.submitted}">
+    The client's timesheet shows other hours worked on:
+    <ul>
+      <li th:each="difference : ${page.differencesWithClient}" th:text="${difference}">
+        Monday 3 August: 8 worked, 7:30 according to the client
+      </li>
+    </ul>
+  </section>
+
+  <section class="banner info" th:if="${page.clientTimesheetUnreadable and !page.submitted}">
+    <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span> could not be read automatically, so
+    compare its hours with yours by hand.
+  </section>
+
   <section class="banner info" th:if="${page.submitted}">
     Submitted to HR on <strong th:text="${page.submittedOn.orElse('')}">7 October 2026</strong>.
     It can no longer be changed; make a correction to change it and submit it again.
@@ -70,7 +86,8 @@
   </section>
 
   <form class="client-timesheet" th:unless="${page.onBench}"
-        th:hx-post="@{/timesheets/{month}/client-timesheet(month=${page.month})}" hx-encoding="multipart/form-data">
+        th:hx-post="@{/timesheets/{month}/client-timesheet(month=${page.month})}" hx-encoding="multipart/form-data"
+        hx-disabled-elt="find button" hx-indicator="find .reading">
     <span class="label">Client timesheet</span>
     <span th:if="${page.clientTimesheetFileName.isPresent()}">
       <strong th:text="${page.clientTimesheetFileName.get()}">acme-may.pdf</strong>
@@ -81,6 +98,7 @@
       <input id="client-timesheet-file" type="file" name="file" accept=".png,.jpg,.jpeg,.pdf,.xlsx" required>
       <button type="submit" class="secondary"
               th:text="${page.clientTimesheetFileName.isPresent()} ? 'Replace' : 'Upload'">Upload</button>
+      <span class="reading htmx-indicator">Reading the hours from the client's timesheet, this can take a minute...</span>
     </th:block>
   </form>
 
@@ -113,6 +131,7 @@
       <thead>
       <tr>
         <th scope="col">Day</th>
+        <th scope="col" title="Hours worked according to the client's timesheet">Client</th>
         <th scope="col" th:each="category : ${categories}" th:text="#{${'category.' + category}}">Worked</th>
         <th scope="col">Km</th>
         <th scope="col">Explanation</th>
@@ -127,6 +146,7 @@
       <tfoot th:fragment="totals" id="totals" th:hx-swap-oob="${oob} ? 'true'">
       <tr>
         <th scope="row">Total</th>
+        <td></td>
         <td th:each="category : ${categories}" th:text="${page.totalHours.get(category)}">168</td>
         <td th:text="${page.totalKilometres}">0</td>
         <td colspan="2"></td>

@@ -9,6 +9,8 @@ import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
 import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
+import eu.openvalue.timesheet.adapter.out.reading.OllamaClientTimesheetReader;
+import eu.openvalue.timesheet.adapter.out.reading.OllamaProperties;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
@@ -26,6 +28,7 @@ import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
+import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
@@ -41,7 +44,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
-    TimesheetMailProperties.class, AbsenceRegistryProperties.class})
+    TimesheetMailProperties.class, AbsenceRegistryProperties.class, OllamaProperties.class})
 class TimesheetConfiguration {
 
   @Bean
@@ -115,7 +118,12 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  AttachClientTimesheetUseCase attachClientTimesheetUseCase(TimesheetDrafts drafts) {
-    return new AttachingClientTimesheet(drafts);
+  ClientTimesheetReader clientTimesheetReader(OllamaProperties properties) {
+    return OllamaClientTimesheetReader.connectingTo(properties.baseUrl(), properties.model(), properties.timeout());
+  }
+
+  @Bean
+  AttachClientTimesheetUseCase attachClientTimesheetUseCase(TimesheetDrafts drafts, ClientTimesheetReader reader) {
+    return new AttachingClientTimesheet(drafts, reader);
   }
 }

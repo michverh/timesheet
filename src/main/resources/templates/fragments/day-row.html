@@ -8,6 +8,7 @@
       th:hx-post="@{/timesheets/{month}/days/{date}(month=${row.month},date=${row.date})}"
       hx-trigger="change" hx-include="this" hx-target="this" hx-swap="outerHTML">
     <th scope="row" th:text="${row.label}">Mon 4</th>
+    <td class="client-hours" th:classappend="${row.differsFromClient} ? 'differs'" th:text="${row.clientHours}">8</td>
     <td th:each="category : ${categories}">
       <input type="text" class="hours" autocomplete="off"
              th:id="|${row.date}-${category}|"

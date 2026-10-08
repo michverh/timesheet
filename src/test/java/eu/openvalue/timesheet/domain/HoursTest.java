@@ -88,6 +88,30 @@ class HoursTest {
     assertThat(Hours.ofMinutes(minutes).toDecimalHours()).isEqualByComparingTo(hours);
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "7:30,  450",
+      "7:05,  425",
+      "7:5,   425",
+      "0:45,  45",
+      "8,     480",
+      "' 8 ', 480",
+      "7.5,   450",
+      "'7,5', 450",
+      "1.25,  75",
+      "0.1,   6",
+      "7.33,  440"
+  })
+  void parsesHoursAndMinutesWholeHoursOrDecimalHoursRoundedToTheMinute(String text, int minutes) {
+    assertThat(Hours.parse(text)).isEqualTo(Hours.ofMinutes(minutes));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"7:60", "7:", ":30", "-1", "-0.5", "abc", "7h30", "1:2:3"})
+  void cannotBeParsedFromAnythingElse(String text) {
+    assertThatThrownBy(() -> Hours.parse(text)).isInstanceOf(IllegalArgumentException.class);
+  }
+
   @Test
   void printsAsHoursAndMinutes() {
     assertThat(Hours.of(7, 5)).hasToString("7:05");

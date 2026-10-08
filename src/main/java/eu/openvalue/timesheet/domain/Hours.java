@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.domain;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * A non-negative amount of time booked on a timesheet, precise to the minute.
@@ -12,6 +13,8 @@ public final class Hours implements Comparable<Hours> {
   private static final int MINUTES_PER_HOUR = 60;
   private static final BigDecimal MINUTES_PER_HOUR_DECIMAL = BigDecimal.valueOf(MINUTES_PER_HOUR);
   private static final int DECIMAL_HOURS_SCALE = 10;
+  private static final Pattern HOURS_AND_MINUTES = Pattern.compile("(\\d{1,3}):(\\d{1,2})");
+  private static final Pattern DECIMAL_HOURS = Pattern.compile("\\d{1,3}([.,]\\d+)?");
 
   public static final Hours ZERO = new Hours(0);
 
@@ -54,6 +57,24 @@ public final class Hours implements Comparable<Hours> {
     } catch (ArithmeticException e) {
       throw new IllegalArgumentException("Too many hours: " + hours, e);
     }
+  }
+
+  /**
+   * Reads hours as people write them: as hours and minutes ({@code 7:30}), as whole hours ({@code 8}) or as decimal
+   * hours ({@code 7.5} or {@code 7,5}, rounded to the nearest minute).
+   *
+   * @throws IllegalArgumentException when the text is not a non-negative amount of hours written in one of these ways
+   */
+  public static Hours parse(String text) {
+    var input = Objects.requireNonNull(text, "text").strip();
+    var hoursAndMinutes = HOURS_AND_MINUTES.matcher(input);
+    if (hoursAndMinutes.matches()) {
+      return of(Integer.parseInt(hoursAndMinutes.group(1)), Integer.parseInt(hoursAndMinutes.group(2)));
+    }
+    if (DECIMAL_HOURS.matcher(input).matches()) {
+      return ofDecimalHours(new BigDecimal(input.replace(',', '.')));
+    }
+    throw new IllegalArgumentException("Not an amount of hours: " + text);
   }
 
   /**
