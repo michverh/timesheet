@@ -370,4 +370,73 @@ class TimesheetTest {
     // Then
     assertThat(draft.registeredAbsencesUnknown()).isFalse();
   }
+
+  @Test
+  void holdsTheClientsTimesheet() {
+    // Given
+    var document = clientTimesheet("acme-february.pdf");
+
+    // When
+    timesheet.attachClientTimesheet(document);
+
+    // Then
+    assertThat(timesheet.clientTimesheet()).contains(document);
+  }
+
+  @Test
+  void replacesTheClientsTimesheet() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
+
+    // When
+    timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
+
+    // Then
+    assertThat(timesheet.clientTimesheet()).map(ClientTimesheetDocument::fileName).contains("second.pdf");
+  }
+
+  @Test
+  void refusesAClientsTimesheetOnceSubmitted() {
+    // Given
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+
+    // When / Then
+    assertThatThrownBy(() -> timesheet.attachClientTimesheet(clientTimesheet("late.pdf")))
+        .isInstanceOf(TimesheetAlreadySubmittedException.class);
+  }
+
+  @Test
+  void lacksTheClientsTimesheetWhenWorkingForAClientWithoutOne() {
+    assertThat(timesheet.lacksClientTimesheet()).isTrue();
+  }
+
+  @Test
+  void doesNotLackTheClientsTimesheetOnceHandedIn() {
+    // When
+    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+
+    // Then
+    assertThat(timesheet.lacksClientTimesheet()).isFalse();
+  }
+
+  @Test
+  void doesNotLackAClientsTimesheetOnTheBench() {
+    assertThat(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()).lacksClientTimesheet()).isFalse();
+  }
+
+  @Test
+  void keepsTheClientsTimesheetWhenRestarted() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+
+    // When
+    timesheet.restartFrom(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()));
+
+    // Then
+    assertThat(timesheet.clientTimesheet()).isPresent();
+  }
+
+  private static ClientTimesheetDocument clientTimesheet(String fileName) {
+    return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, new byte[] {1, 2, 3});
+  }
 }

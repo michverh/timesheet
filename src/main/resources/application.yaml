@@ -6,10 +6,20 @@ spring:
       start:
         # Also start services added to compose.yaml when others are already running.
         skip: never
+  servlet:
+    multipart:
+      # The client's own timesheet can be at most 10 MB.
+      max-file-size: 10MB
+      max-request-size: 11MB
   # Mailpit from compose.yaml catches all mail; see http://localhost:8025
   mail:
     host: localhost
     port: 1025
+
+server:
+  tomcat:
+    # Read oversized uploads to the end, so the browser receives the error instead of a reset connection.
+    max-swallow-size: 20MB
 
 timesheet:
   # HR's absence registry; locally the WireMock stub from compose.yaml.

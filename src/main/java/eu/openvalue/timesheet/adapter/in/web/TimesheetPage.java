@@ -2,6 +2,7 @@ package eu.openvalue.timesheet.adapter.in.web;
 
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
@@ -20,7 +21,7 @@ import java.util.Optional;
 public record TimesheetPage(String professionalName, String professionalEmail, YearMonth month, String monthLabel,
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
-    boolean registeredAbsencesUnknown) {
+    boolean registeredAbsencesUnknown, Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
@@ -45,7 +46,9 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.daysLackingRequiredExplanation().stream().map(DAY_LABEL::format).toList(),
         timesheet.submittedOn().map(DATE_LABEL::format),
         timesheet.previouslySubmittedOn().map(DATE_LABEL::format),
-        timesheet.registeredAbsencesUnknown());
+        timesheet.registeredAbsencesUnknown(),
+        timesheet.clientTimesheet().map(ClientTimesheetDocument::fileName),
+        timesheet.lacksClientTimesheet());
   }
 
   Optional<DayRow> day(LocalDate date) {

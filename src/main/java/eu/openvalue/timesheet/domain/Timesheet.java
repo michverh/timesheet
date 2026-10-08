@@ -21,6 +21,7 @@ public final class Timesheet {
   private MonthOfDays days;
   private SubmissionState submission = Draft.NEW;
   private boolean registeredAbsencesUnknown;
+  private ClientTimesheetDocument clientTimesheet;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
     this.month = month;
@@ -115,8 +116,30 @@ public final class Timesheet {
   }
 
   /**
-   * Starts over from a freshly prepared timesheet for the same professional and month, discarding all changes. Earlier
-   * submissions are remembered, so a correction remains a correction.
+   * Hands in the client's own timesheet alongside this one, replacing any handed in before.
+   *
+   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
+   */
+  public void attachClientTimesheet(ClientTimesheetDocument document) {
+    Objects.requireNonNull(document, "document");
+    requireDraft();
+    clientTimesheet = document;
+  }
+
+  public Optional<ClientTimesheetDocument> clientTimesheet() {
+    return Optional.ofNullable(clientTimesheet);
+  }
+
+  /**
+   * Whether the professional works for a client, but the client's own timesheet has not been handed in.
+   */
+  public boolean lacksClientTimesheet() {
+    return !isOnBench() && clientTimesheet == null;
+  }
+
+  /**
+   * Starts over from a freshly prepared timesheet for the same professional and month, discarding all changes to the
+   * days. Earlier submissions and the client's timesheet are kept, so a correction remains a correction.
    *
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
    */

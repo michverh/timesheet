@@ -44,7 +44,7 @@ public final class SubmittingTimesheet implements SubmitTimesheetUseCase {
     var file = spreadsheet.create(draft);
     try {
       delivery.deliver(new TimesheetSubmission(professional, month, today, draft.previouslySubmittedOn(),
-          SpreadsheetFileName.of(draft, file.fileExtension()), file));
+          SpreadsheetFileName.of(draft, file.fileExtension()), file, draft.clientTimesheet()));
     } catch (TimesheetDeliveryFailedException e) {
       throw new TimesheetSubmissionFailedException(month, e);
     }

@@ -2,10 +2,13 @@ package eu.openvalue.timesheet.adapter.out.mail;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import eu.openvalue.timesheet.application.port.out.SpreadsheetFile;
 import eu.openvalue.timesheet.application.port.out.TimesheetDeliveryFailedException;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Professional;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -78,7 +81,26 @@ class MailTimesheetDeliveryTest {
         .contains("Please find attached the timesheet of Jan Jansen for May 2026, submitted on 2 June 2026.")
         .contains("The attached file, Urenverantwoording_2026-05_Jan_Jansen.xlsx, lists the timesheet for May 2026.")
         .contains("Kind regards,")
-        .doesNotContain("corrected");
+        .doesNotContain("corrected", "client's own timesheet");
+  }
+
+  @Test
+  void attachesTheClientsTimesheetWhenHandedIn() {
+    // Given
+    var clientTimesheet = new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {9, 8, 7});
+
+    // When
+    delivery.deliver(submission(Optional.empty(), Optional.of(clientTimesheet)));
+
+    // Then
+    var message = onlyMessage();
+    assertThat(attachments(message))
+        .extracting(attachment -> attachment.get("FileName"), attachment -> attachment.get("ContentType"))
+        .containsExactly(
+            tuple("Urenverantwoording_2026-05_Jan_Jansen.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            tuple("acme-may.pdf", "application/pdf"));
+    assertThat((String) message.get("Text")).contains("The client's own timesheet is attached as acme-may.pdf.");
   }
 
   @Test
@@ -124,9 +146,14 @@ class MailTimesheetDeliveryTest {
   }
 
   private static TimesheetSubmission submission(Optional<LocalDate> replacesSubmissionOf) {
+    return submission(replacesSubmissionOf, Optional.empty());
+  }
+
+  private static TimesheetSubmission submission(Optional<LocalDate> replacesSubmissionOf,
+      Optional<ClientTimesheetDocument> clientTimesheet) {
     return new TimesheetSubmission(JAN, YearMonth.of(2026, 5), LocalDate.of(2026, 6, 2), replacesSubmissionOf,
         "Urenverantwoording_2026-05_Jan_Jansen.xlsx", new SpreadsheetFile("xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CONTENT));
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CONTENT), clientTimesheet);
   }
 
   @SuppressWarnings("unchecked")

@@ -54,6 +54,11 @@
     in. Check those days yourself, or reset to the prefilled hours to try the registry again.
   </section>
 
+  <section class="banner warning" th:if="${page.lacksClientTimesheet and !page.submitted}">
+    The timesheet <span th:text="${page.client}">ACME</span> keeps of your hours has not been uploaded yet. You can
+    submit without it, but HR usually wants it alongside.
+  </section>
+
   <section class="banner info" th:if="${page.submitted}">
     Submitted to HR on <strong th:text="${page.submittedOn.orElse('')}">7 October 2026</strong>.
     It can no longer be changed; make a correction to change it and submit it again.
@@ -63,6 +68,21 @@
     <strong th:text="${page.previouslySubmittedOn.orElse('')}">7 October 2026</strong>.
     Submit it again to send the corrected version to HR.
   </section>
+
+  <form class="client-timesheet" th:unless="${page.onBench}"
+        th:hx-post="@{/timesheets/{month}/client-timesheet(month=${page.month})}" hx-encoding="multipart/form-data">
+    <span class="label">Client timesheet</span>
+    <span th:if="${page.clientTimesheetFileName.isPresent()}">
+      <strong th:text="${page.clientTimesheetFileName.get()}">acme-may.pdf</strong>
+    </span>
+    <span class="muted" th:if="${page.clientTimesheetFileName.isEmpty()}">not uploaded</span>
+    <th:block th:unless="${page.submitted}">
+      <label class="visually-hidden" for="client-timesheet-file">Client timesheet file</label>
+      <input id="client-timesheet-file" type="file" name="file" accept=".png,.jpg,.jpeg,.pdf,.xlsx" required>
+      <button type="submit" class="secondary"
+              th:text="${page.clientTimesheetFileName.isPresent()} ? 'Replace' : 'Upload'">Upload</button>
+    </th:block>
+  </form>
 
   <div class="toolbar">
     <a class="secondary" th:href="@{/timesheets/{month}/download(month=${page.month})}">Download spreadsheet</a>

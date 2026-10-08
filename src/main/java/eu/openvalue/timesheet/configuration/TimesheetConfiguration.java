@@ -12,11 +12,13 @@ import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
+import eu.openvalue.timesheet.application.AttachingClientTimesheet;
 import eu.openvalue.timesheet.application.CorrectingTimesheet;
 import eu.openvalue.timesheet.application.DownloadingTimesheet;
 import eu.openvalue.timesheet.application.PreparingTimesheetDraft;
 import eu.openvalue.timesheet.application.SubmittingTimesheet;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
+import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.CorrectTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
@@ -110,5 +112,10 @@ class TimesheetConfiguration {
   @Bean
   CorrectTimesheetUseCase correctTimesheetUseCase(TimesheetDrafts drafts) {
     return new CorrectingTimesheet(drafts);
+  }
+
+  @Bean
+  AttachClientTimesheetUseCase attachClientTimesheetUseCase(TimesheetDrafts drafts) {
+    return new AttachingClientTimesheet(drafts);
   }
 }

@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Maps the errors that are not handled on the page itself to HTTP responses, whose text the page shows as an alert.
@@ -25,6 +26,11 @@ class TimesheetExceptionHandler {
   ResponseEntity<String> submissionFailed(TimesheetSubmissionFailedException exception) {
     return plainText(HttpStatus.SERVICE_UNAVAILABLE,
         "The timesheet could not be sent to HR, so it has not been submitted. Please try again later.");
+  }
+
+  @ExceptionHandler
+  ResponseEntity<String> uploadTooLarge(MaxUploadSizeExceededException exception) {
+    return plainText(HttpStatus.CONTENT_TOO_LARGE, "The client timesheet can be at most 10 MB.");
   }
 
   @ExceptionHandler

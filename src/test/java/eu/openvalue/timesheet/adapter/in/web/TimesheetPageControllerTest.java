@@ -12,9 +12,12 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +132,50 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText().doesNotContain("absence registry could not be reached");
+  }
+
+  @Test
+  void warnsWhenTheClientsTimesheetHasNotBeenUploaded() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft());
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("The timesheet <span>ACME</span> keeps of your hours has not been uploaded yet")
+        .contains("not uploaded", ">Upload</button>");
+  }
+
+  @Test
+  void showsTheUploadedClientsTimesheetAndOffersToReplaceIt() {
+    // Given
+    var withClientTimesheet = draft();
+    withClientTimesheet.attachClientTimesheet(
+        new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {1}));
+    when(prepareDraft.prepareDraft(any())).thenReturn(withClientTimesheet);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("<strong>acme-may.pdf</strong>", ">Replace</button>")
+        .doesNotContain("has not been uploaded yet");
+  }
+
+  @Test
+  void offersNoClientsTimesheetOnTheBench() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(new TimesheetPrefill(new DutchPublicHolidays())
+        .prefill(MAY_2026, JAN, Optional.empty(), List.of()));
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText().doesNotContain("Client timesheet", "has not been uploaded yet");
   }
 
   @Test

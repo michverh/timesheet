@@ -11,6 +11,8 @@ import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetDeliveryFailedException;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.FutureMonthNotSubmittableException;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
@@ -60,6 +62,23 @@ class SubmittingTimesheetTest {
       assertThat(submission.fileName()).isEqualTo("Urenverantwoording_2026-05_Jan_Jansen.ods");
       assertThat(submission.spreadsheet()).isSameAs(file);
     });
+  }
+
+  @Test
+  void handsTheClientsTimesheetInAlongsideWhenAttached() {
+    // Given
+    var timesheet = Timesheet.start(MAY_2026, JAN, Optional.empty());
+    var clientTimesheet = new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {9});
+    timesheet.attachClientTimesheet(clientTimesheet);
+    drafts.save(timesheet);
+
+    // When
+    submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(delivered).singleElement()
+        .extracting(TimesheetSubmission::clientTimesheet)
+        .isEqualTo(Optional.of(clientTimesheet));
   }
 
   @Test

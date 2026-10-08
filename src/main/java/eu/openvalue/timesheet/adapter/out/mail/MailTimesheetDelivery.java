@@ -48,6 +48,7 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
     helper.setSubject(subjectOf(submission));
     helper.setText(bodyOf(submission));
     attachSpreadsheet(helper, submission);
+    attachClientTimesheet(helper, submission);
     return message;
   }
 
@@ -69,6 +70,16 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
         spreadsheet.mediaType());
   }
 
+  private static void attachClientTimesheet(MimeMessageHelper helper, TimesheetSubmission submission)
+      throws MessagingException {
+    if (submission.clientTimesheet().isEmpty()) {
+      return;
+    }
+    var document = submission.clientTimesheet().get();
+    helper.addAttachment(document.fileName(), new ByteArrayResource(document.content()),
+        document.format().mediaType());
+  }
+
   private static String subjectOf(TimesheetSubmission submission) {
     return submission.isCorrection() ? "Timesheet (correction)" : "Timesheet";
   }
@@ -77,14 +88,20 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
     return """
         Dear HR,
 
-        %s The attached file, %s, lists the timesheet for %s.
+        %s The attached file, %s, lists the timesheet for %s.%s
 
         Kind regards,
 
         %s
         %s
         """.formatted(introductionOf(submission), submission.fileName(), month(submission.month()),
-        submission.professional().name(), submission.professional().email());
+        clientTimesheetNoteOf(submission), submission.professional().name(), submission.professional().email());
+  }
+
+  private static String clientTimesheetNoteOf(TimesheetSubmission submission) {
+    return submission.clientTimesheet()
+        .map(document -> " The client's own timesheet is attached as %s.".formatted(document.fileName()))
+        .orElse("");
   }
 
   private static String introductionOf(TimesheetSubmission submission) {

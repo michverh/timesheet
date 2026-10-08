@@ -142,6 +142,22 @@ h2 {
   display: none !important;
 }
 
+.client-timesheet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.client-timesheet .label {
+  color: var(--muted);
+}
+
+.client-timesheet .muted {
+  margin-left: 0;
+}
+
 .toolbar {
   display: flex;
   justify-content: flex-end;
