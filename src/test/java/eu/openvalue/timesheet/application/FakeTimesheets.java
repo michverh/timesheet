@@ -60,7 +60,7 @@ final class FakeTimesheets implements Timesheets {
   private static Timesheet copyOf(Timesheet timesheet) {
     return Timesheet.restore(timesheet.month(), timesheet.professional(), timesheet.assignment(), timesheet.days(),
         timesheet.registeredAbsencesUnknown(), timesheet.submittedOn(), timesheet.previouslySubmittedOn(),
-        timesheet.clientTimesheet(), timesheet.hoursReportedByClient(), timesheet.isClientTimesheetUnreadable());
+        timesheet.clientTimesheet());
   }
 
   private record Key(Professional professional, YearMonth month) {

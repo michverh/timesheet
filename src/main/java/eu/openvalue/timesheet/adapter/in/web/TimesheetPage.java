@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.adapter.in.web;
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.HoursDifference;
@@ -54,21 +55,25 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.submittedOn().map(DATE_LABEL::format),
         timesheet.previouslySubmittedOn().map(DATE_LABEL::format),
         timesheet.registeredAbsencesUnknown(),
-        timesheet.clientTimesheet().map(ClientTimesheetDocument::fileName),
+        timesheet.clientTimesheet().map(ClientTimesheet::document).map(ClientTimesheetDocument::fileName),
         timesheet.lacksClientTimesheet(),
-        timesheet.isClientTimesheetUnreadable(),
+        timesheet.clientTimesheet().filter(ClientTimesheet::isUnreadable).isPresent(),
         timesheet.differencesWithClientTimesheet().stream().map(TimesheetPage::describe).toList(),
-        timesheet.hoursReportedByClient().flatMap(TimesheetPage::periodOf),
+        hoursReportedByClient(timesheet).flatMap(TimesheetPage::periodOf),
         timesheet.isClientTimesheetOfAnotherPeriod());
   }
 
   private static List<DayRow> rowsOf(Timesheet timesheet) {
-    var reported = timesheet.hoursReportedByClient();
+    var reported = hoursReportedByClient(timesheet);
     var differing = timesheet.differencesWithClientTimesheet().stream().map(HoursDifference::date)
         .collect(Collectors.toSet());
     return timesheet.days().stream()
         .map(day -> DayRow.of(day, reported.flatMap(hours -> hours.on(day.date())), differing.contains(day.date())))
         .toList();
+  }
+
+  private static Optional<ClientReportedHours> hoursReportedByClient(Timesheet timesheet) {
+    return timesheet.clientTimesheet().flatMap(ClientTimesheet::hoursReportedByClient);
   }
 
   /**

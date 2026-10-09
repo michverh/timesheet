@@ -11,29 +11,25 @@ import java.util.Optional;
 
 /**
  * A professional's monthly account of hours, kilometres and explanations, with exactly one entry for every day of
- * the month.
+ * the month().
  */
 public final class Timesheet {
 
-  private final YearMonth month;
   private final Professional professional;
   private Assignment assignment;
   private MonthOfDays days;
   private SubmissionState submission = Draft.NEW;
   private boolean registeredAbsencesUnknown;
-  private ClientTimesheetDocument clientTimesheet;
-  private ClientReportedHours hoursReportedByClient;
-  private boolean clientTimesheetUnreadable;
+  private ClientTimesheet clientTimesheet;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
-    this.month = month;
     this.professional = professional;
     this.assignment = assignment;
     this.days = MonthOfDays.emptyFor(month);
   }
 
   /**
-   * Starts an empty timesheet for the given month.
+   * Starts an empty timesheet for the given month().
    *
    * @param assignment the client the professional works for, or empty when the professional is on the bench
    */
@@ -50,34 +46,24 @@ public final class Timesheet {
    * @param days exactly one entry for every day of the month
    * @param submittedOn when the timesheet was submitted, or empty while it is a draft
    * @param previouslySubmittedOn when it was submitted before being reopened for correction, if it ever was
-   * @param hoursReportedByClient what was read from the client's timesheet, if it was read
+   * @param clientTimesheet the client's own timesheet handed in alongside, if any
    * @throws IllegalArgumentException when the state is not one a timesheet can be in
    */
   public static Timesheet restore(YearMonth month, Professional professional, Optional<Assignment> assignment,
       List<DayEntry> days, boolean registeredAbsencesUnknown, Optional<LocalDate> submittedOn,
-      Optional<LocalDate> previouslySubmittedOn, Optional<ClientTimesheetDocument> clientTimesheet,
-      Optional<ClientReportedHours> hoursReportedByClient, boolean clientTimesheetUnreadable) {
+      Optional<LocalDate> previouslySubmittedOn, Optional<ClientTimesheet> clientTimesheet) {
     Objects.requireNonNull(days, "days");
     Objects.requireNonNull(clientTimesheet, "clientTimesheet");
-    Objects.requireNonNull(hoursReportedByClient, "hoursReportedByClient");
-    if (clientTimesheet.isEmpty() && (hoursReportedByClient.isPresent() || clientTimesheetUnreadable)) {
-      throw new IllegalArgumentException("Only a client's timesheet that was handed in can have been read");
-    }
-    if (hoursReportedByClient.isPresent() && clientTimesheetUnreadable) {
-      throw new IllegalArgumentException("A client's timesheet cannot have been both read and found unreadable");
-    }
     var timesheet = start(month, professional, assignment);
     timesheet.days = MonthOfDays.of(month, days);
     timesheet.registeredAbsencesUnknown = registeredAbsencesUnknown;
     timesheet.submission = SubmissionState.of(submittedOn, previouslySubmittedOn);
     timesheet.clientTimesheet = clientTimesheet.orElse(null);
-    timesheet.hoursReportedByClient = hoursReportedByClient.orElse(null);
-    timesheet.clientTimesheetUnreadable = clientTimesheetUnreadable;
     return timesheet;
   }
 
   public YearMonth month() {
-    return month;
+    return days.month();
   }
 
   public Professional professional() {
@@ -157,9 +143,7 @@ public final class Timesheet {
   public void attachClientTimesheet(ClientTimesheetDocument document) {
     Objects.requireNonNull(document, "document");
     requireDraft();
-    clientTimesheet = document;
-    hoursReportedByClient = null;
-    clientTimesheetUnreadable = false;
+    clientTimesheet = ClientTimesheet.handedIn(document);
   }
 
   /**
@@ -169,10 +153,7 @@ public final class Timesheet {
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
    */
   public void recordHoursReportedByClient(ClientReportedHours reported) {
-    Objects.requireNonNull(reported, "reported");
-    requireClientTimesheet();
-    hoursReportedByClient = reported;
-    clientTimesheetUnreadable = false;
+    clientTimesheet = requireClientTimesheet().readAs(reported);
   }
 
   /**
@@ -182,36 +163,24 @@ public final class Timesheet {
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
    */
   public void markClientTimesheetUnreadable() {
-    requireClientTimesheet();
-    hoursReportedByClient = null;
-    clientTimesheetUnreadable = true;
-  }
-
-  public Optional<ClientReportedHours> hoursReportedByClient() {
-    return Optional.ofNullable(hoursReportedByClient);
-  }
-
-  public boolean isClientTimesheetUnreadable() {
-    return clientTimesheetUnreadable;
+    clientTimesheet = requireClientTimesheet().unreadable();
   }
 
   /**
-   * Whether the client's timesheet was read, but concerns another period: it covers none of the days of the month.
+   * Whether the client's timesheet was read, but concerns another period: it covers none of the days of the month().
    */
   public boolean isClientTimesheetOfAnotherPeriod() {
-    return hoursReportedByClient()
-        .filter(reported -> !reported.isEmpty() && !reported.coversAnyDayOf(month))
-        .isPresent();
+    return clientTimesheet().filter(client -> client.isOfAnotherPeriodThan(month())).isPresent();
   }
 
   /**
    * The days on which the hours booked as worked differ from the client's timesheet; none when it has not been read.
    */
   public List<HoursDifference> differencesWithClientTimesheet() {
-    return hoursReportedByClient().map(reported -> reported.differencesWith(days)).orElse(List.of());
+    return clientTimesheet().map(client -> client.differencesWith(days)).orElse(List.of());
   }
 
-  public Optional<ClientTimesheetDocument> clientTimesheet() {
+  public Optional<ClientTimesheet> clientTimesheet() {
     return Optional.ofNullable(clientTimesheet);
   }
 
@@ -223,7 +192,7 @@ public final class Timesheet {
   }
 
   /**
-   * Starts over from a freshly prepared timesheet for the same professional and month, discarding all changes to the
+   * Starts over from a freshly prepared timesheet for the same professional and month(), discarding all changes to the
    * days. Earlier submissions and the client's timesheet are kept, so a correction remains a correction.
    *
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
@@ -231,9 +200,9 @@ public final class Timesheet {
   public void restartFrom(Timesheet prepared) {
     Objects.requireNonNull(prepared, "prepared");
     requireDraft();
-    if (!prepared.month.equals(month) || !prepared.professional.equals(professional)) {
+    if (!prepared.month().equals(month()) || !prepared.professional.equals(professional)) {
       throw new IllegalArgumentException("Can only restart from a timesheet of %s for %s".formatted(
-          professional.email(), month));
+          professional.email(), month()));
     }
     assignment = prepared.assignment;
     days = prepared.days;
@@ -255,21 +224,21 @@ public final class Timesheet {
   /**
    * Checks whether the timesheet can be submitted, without submitting it.
    *
-   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
+   * @throws FutureMonthNotSubmittableException when the month() has not started yet on {@code today}
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
    */
   public void ensureSubmittableOn(LocalDate today) {
     Objects.requireNonNull(today, "today");
     requireDraft();
-    if (month.isAfter(YearMonth.from(today))) {
-      throw new FutureMonthNotSubmittableException(month);
+    if (month().isAfter(YearMonth.from(today))) {
+      throw new FutureMonthNotSubmittableException(month());
     }
   }
 
   /**
    * Submits the timesheet, after which it can no longer be changed until it is reopened for correction.
    *
-   * @throws FutureMonthNotSubmittableException when the month has not started yet on {@code today}
+   * @throws FutureMonthNotSubmittableException when the month() has not started yet on {@code today}
    * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted before
    */
   public void submit(LocalDate today) {
@@ -284,7 +253,7 @@ public final class Timesheet {
    */
   public void reopenForCorrection() {
     if (!(submission instanceof Submitted submitted)) {
-      throw new TimesheetNotSubmittedException(month);
+      throw new TimesheetNotSubmittedException(month());
     }
     submission = submitted.reopen();
   }
@@ -309,17 +278,18 @@ public final class Timesheet {
     days = days.with(entry);
   }
 
-  private void requireClientTimesheet() {
+  private ClientTimesheet requireClientTimesheet() {
     requireDraft();
     if (clientTimesheet == null) {
-      throw new IllegalStateException("No client's timesheet has been handed in for " + month);
+      throw new IllegalStateException("No client's timesheet has been handed in for " + month());
     }
+    return clientTimesheet;
   }
 
   private Draft requireDraft() {
     if (submission instanceof Draft draft) {
       return draft;
     }
-    throw new TimesheetAlreadySubmittedException(month);
+    throw new TimesheetAlreadySubmittedException(month());
   }
 }

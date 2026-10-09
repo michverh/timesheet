@@ -10,6 +10,7 @@ import eu.openvalue.timesheet.application.port.out.TimesheetDeliveryFailedExcept
 import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -46,7 +47,7 @@ public final class SubmittingTimesheet implements SubmitTimesheetUseCase {
     var file = spreadsheet.create(draft);
     try {
       delivery.deliver(new TimesheetSubmission(professional, month, today, draft.previouslySubmittedOn(),
-          SpreadsheetFileName.of(draft, file.fileExtension()), file, draft.clientTimesheet()));
+          SpreadsheetFileName.of(draft, file.fileExtension()), file, draft.clientTimesheet().map(ClientTimesheet::document)));
     } catch (TimesheetDeliveryFailedException e) {
       throw new TimesheetSubmissionFailedException(month, e);
     }

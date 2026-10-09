@@ -11,6 +11,7 @@ import eu.openvalue.timesheet.application.port.out.TimesheetChangedConcurrentlyE
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Explanation;
@@ -149,7 +150,7 @@ class JpaTimesheetsTest {
   void keepsThatTheRegisteredAbsencesWereUnknown() {
     // Given
     var timesheet = Timesheet.restore(MAY_2026, JAN, Optional.of(ACME), draft().days(), true, Optional.empty(),
-        Optional.empty(), Optional.empty(), Optional.empty(), false);
+        Optional.empty(), Optional.empty());
 
     // When
     timesheets.save(timesheet);
@@ -189,8 +190,8 @@ class JpaTimesheetsTest {
 
     // Then
     var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.clientTimesheet()).contains(clientTimesheet("acme-may.pdf"));
-    assertThat(kept.hoursReportedByClient()).contains(new ClientReportedHours(Map.of(
+    assertThat(kept.clientTimesheet().map(ClientTimesheet::document)).contains(clientTimesheet("acme-may.pdf"));
+    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).contains(new ClientReportedHours(Map.of(
         MONDAY, Hours.of(7, 30), TUESDAY, Hours.ZERO)));
     assertThat(kept.differencesWithClientTimesheet())
         .containsExactly(new HoursDifference(MONDAY, Hours.of(8), Hours.of(7, 30)));
@@ -207,7 +208,7 @@ class JpaTimesheetsTest {
     timesheets.save(timesheet);
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().hoursReportedByClient())
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheet().orElseThrow().hoursReportedByClient())
         .contains(new ClientReportedHours(Map.of()));
   }
 
@@ -222,7 +223,7 @@ class JpaTimesheetsTest {
     timesheets.save(timesheet);
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().isClientTimesheetUnreadable()).isTrue();
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheet().orElseThrow().isUnreadable()).isTrue();
   }
 
   @Test
@@ -236,8 +237,8 @@ class JpaTimesheetsTest {
 
     // Then
     var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.hoursReportedByClient()).isEmpty();
-    assertThat(kept.isClientTimesheetUnreadable()).isFalse();
+    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
+    assertThat(kept.clientTimesheet().orElseThrow().isUnreadable()).isFalse();
   }
 
   @Test
@@ -255,8 +256,8 @@ class JpaTimesheetsTest {
 
     // Then
     var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.clientTimesheet()).contains(clientTimesheet("second.pdf"));
-    assertThat(kept.hoursReportedByClient()).isEmpty();
+    assertThat(kept.clientTimesheet().map(ClientTimesheet::document)).contains(clientTimesheet("second.pdf"));
+    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
   }
 
   @Test

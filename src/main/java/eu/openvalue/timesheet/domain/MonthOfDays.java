@@ -48,6 +48,10 @@ final class MonthOfDays {
     return days;
   }
 
+  YearMonth month() {
+    return month;
+  }
+
   List<DayEntry> all() {
     return List.copyOf(days.values());
   }

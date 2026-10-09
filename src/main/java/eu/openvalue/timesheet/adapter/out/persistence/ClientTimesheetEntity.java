@@ -1,10 +1,10 @@
 package eu.openvalue.timesheet.adapter.out.persistence;
 
 import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Hours;
-import eu.openvalue.timesheet.domain.Timesheet;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -20,7 +20,6 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -77,12 +76,13 @@ class ClientTimesheetEntity {
   /**
    * Keeps what was read from the client's timesheet.
    */
-  void copyReading(Timesheet timesheet) {
-    reading = timesheet.hoursReportedByClient().isPresent() ? Reading.READ
-        : timesheet.isClientTimesheetUnreadable() ? Reading.UNREADABLE
+  void copyReading(ClientTimesheet clientTimesheet) {
+    var reported = clientTimesheet.hoursReportedByClient();
+    reading = reported.isPresent() ? Reading.READ
+        : clientTimesheet.isUnreadable() ? Reading.UNREADABLE
         : Reading.UNREAD;
     var minutes = new HashMap<LocalDate, Integer>();
-    timesheet.hoursReportedByClient().ifPresent(reported -> reported.hoursWorkedPerDay()
+    reported.ifPresent(read -> read.hoursWorkedPerDay()
         .forEach((date, hours) -> minutes.put(date, hours.inMinutes())));
     if (!reportedMinutesPerDay.equals(minutes)) {
       reportedMinutesPerDay.clear();
@@ -90,20 +90,22 @@ class ClientTimesheetEntity {
     }
   }
 
-  ClientTimesheetDocument document() {
+  ClientTimesheet restore() {
+    var handedIn = ClientTimesheet.handedIn(document());
+    return switch (reading) {
+      case UNREAD -> handedIn;
+      case READ -> handedIn.readAs(hoursReportedByClient());
+      case UNREADABLE -> handedIn.unreadable();
+    };
+  }
+
+  private ClientTimesheetDocument document() {
     return new ClientTimesheetDocument(fileName, format, content);
   }
 
-  Optional<ClientReportedHours> hoursReportedByClient() {
-    if (reading != Reading.READ) {
-      return Optional.empty();
-    }
+  private ClientReportedHours hoursReportedByClient() {
     var hours = new TreeMap<LocalDate, Hours>();
     reportedMinutesPerDay.forEach((date, minutes) -> hours.put(date, Hours.ofMinutes(minutes)));
-    return Optional.of(new ClientReportedHours(hours));
-  }
-
-  boolean isUnreadable() {
-    return reading == Reading.UNREADABLE;
+    return new ClientReportedHours(hours);
   }
 }

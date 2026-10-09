@@ -11,6 +11,7 @@ import eu.openvalue.timesheet.application.port.out.ClientTimesheetUnreadableExce
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Hours;
@@ -46,7 +47,7 @@ class AttachingClientTimesheetTest {
     attaching(document -> REPORTED).attach(new AttachClientTimesheetCommand(JAN, MAY_2026, DOCUMENT));
 
     // Then
-    assertThat(draft().clientTimesheet()).contains(DOCUMENT);
+    assertThat(draft().clientTimesheet().map(ClientTimesheet::document)).contains(DOCUMENT);
   }
 
   @Test
@@ -55,7 +56,7 @@ class AttachingClientTimesheetTest {
     attaching(document -> REPORTED).attach(new AttachClientTimesheetCommand(JAN, MAY_2026, DOCUMENT));
 
     // Then
-    assertThat(draft().hoursReportedByClient()).contains(REPORTED);
+    assertThat(draft().clientTimesheet().orElseThrow().hoursReportedByClient()).contains(REPORTED);
   }
 
   @Test
@@ -69,8 +70,8 @@ class AttachingClientTimesheetTest {
     attaching(unreadable).attach(new AttachClientTimesheetCommand(JAN, MAY_2026, DOCUMENT));
 
     // Then
-    assertThat(draft().clientTimesheet()).contains(DOCUMENT);
-    assertThat(draft().isClientTimesheetUnreadable()).isTrue();
+    assertThat(draft().clientTimesheet().map(ClientTimesheet::document)).contains(DOCUMENT);
+    assertThat(draft().clientTimesheet().orElseThrow().isUnreadable()).isTrue();
   }
 
   @Test
@@ -106,7 +107,7 @@ class AttachingClientTimesheetTest {
 
     // Then
     assertThat(readings).hasValue(1);
-    assertThat(draft().hoursReportedByClient()).contains(REPORTED);
+    assertThat(draft().clientTimesheet().orElseThrow().hoursReportedByClient()).contains(REPORTED);
     assertThat(draft().day(monday).hours(WORKED)).isEqualTo(Hours.of(6));
   }
 }

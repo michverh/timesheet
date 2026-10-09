@@ -382,7 +382,7 @@ class TimesheetTest {
     timesheet.attachClientTimesheet(document);
 
     // Then
-    assertThat(timesheet.clientTimesheet()).contains(document);
+    assertThat(timesheet.clientTimesheet().map(ClientTimesheet::document)).contains(document);
   }
 
   @Test
@@ -394,7 +394,7 @@ class TimesheetTest {
     timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
 
     // Then
-    assertThat(timesheet.clientTimesheet()).map(ClientTimesheetDocument::fileName).contains("second.pdf");
+    assertThat(timesheet.clientTimesheet()).map(ClientTimesheet::document).map(ClientTimesheetDocument::fileName).contains("second.pdf");
   }
 
   @Test
@@ -488,7 +488,7 @@ class TimesheetTest {
     timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
 
     // Then
-    assertThat(timesheet.hoursReportedByClient()).isEmpty();
+    assertThat(timesheet.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
   }
 
   @Test
@@ -500,8 +500,8 @@ class TimesheetTest {
     timesheet.markClientTimesheetUnreadable();
 
     // Then
-    assertThat(timesheet.isClientTimesheetUnreadable()).isTrue();
-    assertThat(timesheet.hoursReportedByClient()).isEmpty();
+    assertThat(timesheet.clientTimesheet().orElseThrow().isUnreadable()).isTrue();
+    assertThat(timesheet.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
   }
 
   @Test
@@ -555,11 +555,11 @@ class TimesheetTest {
   void canBeRestoredAsItWasKept() {
     // Given
     timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    var reading = new ClientReportedHours(Map.of(A_DAY, Hours.of(7)));
+    var clientTimesheet = ClientTimesheet.handedIn(clientTimesheet("acme.pdf"))
+        .readAs(new ClientReportedHours(Map.of(A_DAY, Hours.of(7))));
 
     // When
-    var restored = restore(timesheet.days(), Optional.of(SUBMISSION), Optional.of(clientTimesheet("acme.pdf")),
-        Optional.of(reading), false);
+    var restored = restore(timesheet.days(), Optional.of(SUBMISSION), Optional.of(clientTimesheet));
 
     // Then
     assertThat(restored.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
@@ -570,45 +570,14 @@ class TimesheetTest {
   }
 
   @Test
-  void restoresTheClientsTimesheetAsUnreadable() {
-    // When
-    var restored = restore(timesheet.days(), Optional.empty(), Optional.of(clientTimesheet("acme.pdf")),
-        Optional.empty(), true);
-
-    // Then
-    assertThat(restored.isClientTimesheetUnreadable()).isTrue();
-  }
-
-  @Test
-  void cannotBeRestoredWithAReadingWithoutAClientsTimesheet() {
-    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.empty(),
-        Optional.of(new ClientReportedHours(Map.of())), false))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
-  void cannotBeRestoredAsUnreadableWithoutAClientsTimesheet() {
-    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.empty(), Optional.empty(), true))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
-  void cannotBeRestoredAsBothReadAndUnreadable() {
-    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.of(clientTimesheet("acme.pdf")),
-        Optional.of(new ClientReportedHours(Map.of())), true))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
   void cannotBeRestoredWithoutEveryDayOfTheMonth() {
-    assertThatThrownBy(() -> restore(timesheet.days().subList(0, 28), Optional.empty(), Optional.empty(),
-        Optional.empty(), false))
+    assertThatThrownBy(() -> restore(timesheet.days().subList(0, 28), Optional.empty(), Optional.empty()))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   private static Timesheet restore(List<DayEntry> days, Optional<LocalDate> submittedOn,
-      Optional<ClientTimesheetDocument> clientTimesheet, Optional<ClientReportedHours> reading, boolean unreadable) {
+      Optional<ClientTimesheet> clientTimesheet) {
     return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days, false,
-        submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet, reading, unreadable);
+        submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet);
   }
 }

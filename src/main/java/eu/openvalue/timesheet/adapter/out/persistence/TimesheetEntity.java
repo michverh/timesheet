@@ -98,9 +98,7 @@ class TimesheetEntity {
     return Timesheet.restore(YearMonth.from(month), Professional.withEmail(professionalEmail), assignment(),
         days.stream().map(TimesheetDayEntity::restore).toList(), registeredAbsencesUnknown,
         Optional.ofNullable(submittedOn), Optional.ofNullable(previouslySubmittedOn),
-        Optional.ofNullable(clientTimesheet).map(ClientTimesheetEntity::document),
-        Optional.ofNullable(clientTimesheet).flatMap(ClientTimesheetEntity::hoursReportedByClient),
-        clientTimesheet != null && clientTimesheet.isUnreadable());
+        Optional.ofNullable(clientTimesheet).map(ClientTimesheetEntity::restore));
   }
 
   private Optional<Assignment> assignment() {
@@ -124,14 +122,15 @@ class TimesheetEntity {
   }
 
   private void copyClientTimesheet(Timesheet timesheet) {
-    var document = timesheet.clientTimesheet();
-    if (document.isEmpty()) {
+    var handedIn = timesheet.clientTimesheet();
+    if (handedIn.isEmpty()) {
       clientTimesheet = null;
       return;
     }
-    if (clientTimesheet == null || !clientTimesheet.holds(document.get())) {
-      clientTimesheet = new ClientTimesheetEntity(document.get());
+    var document = handedIn.get().document();
+    if (clientTimesheet == null || !clientTimesheet.holds(document)) {
+      clientTimesheet = new ClientTimesheetEntity(document);
     }
-    clientTimesheet.copyReading(timesheet);
+    clientTimesheet.copyReading(handedIn.get());
   }
 }
