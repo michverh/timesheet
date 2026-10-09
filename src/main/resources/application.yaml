@@ -30,6 +30,8 @@ timesheet:
     transcriber: ollama
     claude:
       model: claude-sonnet-5-5
+      # How much the model reasons before answering; "none" for models without this setting, such as claude-haiku-4-5.
+      effort: low
       # Left empty, the credentials in the environment are used, such as ANTHROPIC_API_KEY.
       api-key: ${ANTHROPIC_API_KEY:}
     ollama:

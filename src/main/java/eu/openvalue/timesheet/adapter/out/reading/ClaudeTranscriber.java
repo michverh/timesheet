@@ -41,25 +41,30 @@ public final class ClaudeTranscriber implements Transcriber {
 
   private final AnthropicClient client;
   private final String model;
+  private final Optional<OutputConfig.Effort> effort;
 
-  private ClaudeTranscriber(AnthropicClient client, String model) {
+  private ClaudeTranscriber(AnthropicClient client, String model, Optional<OutputConfig.Effort> effort) {
     this.client = client;
     this.model = model;
+    this.effort = effort;
   }
 
   /**
    * @param apiKey the API key, or empty to use the credentials from the environment, such as
    *     {@code ANTHROPIC_API_KEY}
+   * @param effort how much the model reasons before answering, such as {@code low}; empty for models that do not
+   *     support setting it, such as Claude Haiku 4.5
    * @param timeout how long to wait for the API to answer
    */
   public static ClaudeTranscriber connectingTo(URI baseUrl, Optional<String> apiKey, String model,
-      Duration timeout) {
+      Optional<String> effort, Duration timeout) {
     Objects.requireNonNull(baseUrl, "baseUrl");
     Objects.requireNonNull(model, "model");
+    Objects.requireNonNull(effort, "effort");
     Objects.requireNonNull(timeout, "timeout");
     var client = AnthropicOkHttpClient.builder().fromEnv().baseUrl(baseUrl.toString()).timeout(timeout);
     apiKey.filter(key -> !key.isBlank()).ifPresent(client::apiKey);
-    return new ClaudeTranscriber(client.build(), model);
+    return new ClaudeTranscriber(client.build(), model, effort.map(OutputConfig.Effort::of));
   }
 
   @Override
@@ -88,17 +93,24 @@ public final class ClaudeTranscriber implements Transcriber {
         .model(model)
         .maxTokens(MAXIMUM_ANSWER_TOKENS)
         .addUserMessageOfBlockParams(contentOf(request))
-        .outputConfig(OutputConfig.builder()
-            .effort(OutputConfig.Effort.LOW)
-            .format(JsonOutputFormat.builder()
-                .schema(JsonOutputFormat.Schema.builder()
-                    .additionalProperties(jsonValuesOf(strict(request.schema())))
-                    .build())
-                .build())
-            .build())
+        .outputConfig(outputConfigFor(request))
         .putAdditionalHeader("anthropic-beta", SERVER_SIDE_FALLBACK)
         .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
         .build();
+  }
+
+  /**
+   * Leaves the effort out altogether when it is not to be set: models that do not support it also reject a null.
+   */
+  private OutputConfig outputConfigFor(TranscriptionRequest request) {
+    var outputConfig = OutputConfig.builder()
+        .format(JsonOutputFormat.builder()
+            .schema(JsonOutputFormat.Schema.builder()
+                .additionalProperties(jsonValuesOf(strict(request.schema())))
+                .build())
+            .build());
+    effort.ifPresent(outputConfig::effort);
+    return outputConfig.build();
   }
 
   private static List<ContentBlockParam> contentOf(TranscriptionRequest request) {

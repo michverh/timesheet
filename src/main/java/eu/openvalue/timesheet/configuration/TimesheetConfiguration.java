@@ -139,7 +139,7 @@ class TimesheetConfiguration {
   @ConditionalOnProperty(name = TRANSCRIBER, havingValue = "claude")
   Transcriber claudeTranscriber(ClaudeProperties properties) {
     return ClaudeTranscriber.connectingTo(properties.baseUrl(), Optional.ofNullable(properties.apiKey()),
-        properties.model(), properties.timeout());
+        properties.model(), properties.effortToSet(), properties.timeout());
   }
 
   @Bean

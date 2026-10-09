@@ -2,6 +2,7 @@ package eu.openvalue.timesheet.adapter.out.reading;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.notContaining;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -41,8 +42,7 @@ class ClaudeTranscriberTest {
 
   @BeforeEach
   void connect() {
-    transcriber = ClaudeTranscriber.connectingTo(URI.create(ANTHROPIC.baseUrl()), Optional.of("test-key"), MODEL,
-        Duration.ofSeconds(10));
+    transcriber = connectingWithEffort(Optional.of("low"));
   }
 
   @Test
@@ -81,6 +81,20 @@ class ClaudeTranscriberTest {
         .withRequestBody(matchingJsonPath("$.output_config.format.schema.additionalProperties", equalTo("false")))
         .withRequestBody(matchingJsonPath("$.output_config.format.schema.properties.days.items.additionalProperties",
             equalTo("false"))));
+  }
+
+  @Test
+  void leavesTheEffortOutForModelsThatDoNotSupportIt() {
+    // Given
+    answer(TRANSCRIPTION, "end_turn");
+
+    // When
+    connectingWithEffort(Optional.empty()).transcribe(request());
+
+    // Then
+    ANTHROPIC.verify(postRequestedFor(urlPathEqualTo("/v1/messages"))
+        .withRequestBody(notContaining("\"effort\""))
+        .withRequestBody(matchingJsonPath("$.output_config.format.type", equalTo("json_schema"))));
   }
 
   @Test
@@ -165,6 +179,11 @@ class ClaudeTranscriberTest {
     assertThat(strict).extracting("properties").extracting("days").extracting("items")
         .asInstanceOf(InstanceOfAssertFactories.MAP)
         .containsEntry("additionalProperties", false);
+  }
+
+  private static ClaudeTranscriber connectingWithEffort(Optional<String> effort) {
+    return ClaudeTranscriber.connectingTo(URI.create(ANTHROPIC.baseUrl()), Optional.of("test-key"), MODEL, effort,
+        Duration.ofSeconds(10));
   }
 
   private static TranscriptionRequest request() {
