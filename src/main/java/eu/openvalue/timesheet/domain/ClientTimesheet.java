@@ -1,7 +1,6 @@
 package eu.openvalue.timesheet.domain;
 
 import java.time.YearMonth;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -62,13 +61,6 @@ public final class ClientTimesheet {
     return hoursReportedByClient()
         .filter(reported -> !reported.isEmpty() && !reported.coversAnyDayOf(month))
         .isPresent();
-  }
-
-  /**
-   * The days on which the hours booked as worked differ from the client's timesheet; none when it has not been read.
-   */
-  List<HoursDifference> differencesWith(MonthOfDays days) {
-    return hoursReportedByClient().map(reported -> reported.differencesWith(days)).orElse(List.of());
   }
 
   @Override

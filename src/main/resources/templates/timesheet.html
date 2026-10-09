@@ -68,28 +68,6 @@
     submit without it, but HR usually wants it alongside.
   </section>
 
-  <section th:fragment="client-differences" id="client-differences" class="banner warning" aria-live="polite"
-           th:hx-swap-oob="${oob} ? 'true'"
-           th:hidden="${page.differencesWithClient.isEmpty() or page.submitted}">
-    The client's timesheet shows other hours worked on:
-    <ul>
-      <li th:each="difference : ${page.differencesWithClient}" th:text="${difference}">
-        Monday 3 August: 8 worked, 7:30 according to the client
-      </li>
-    </ul>
-    <p th:if="${page.daysToTakeOverFromClient > 0}">
-      <button type="button"
-              th:hx-post="@{/timesheets/{month}/client-hours(month=${page.month})}"
-              th:text="${page.daysToTakeOverFromClient == 1 ? 'Use the client''s hours for 1 day'
-                  : 'Use the client''s hours for ' + page.daysToTakeOverFromClient + ' days'}">
-        Use the client's hours for 2 days
-      </button>
-      <span class="muted" th:if="${page.daysToTakeOverFromClient < page.differencesWithClient.size()}">
-        Days with leave, sickness or other hours besides worked are left for you to check.
-      </span>
-    </p>
-  </section>
-
   <section class="banner warning" th:if="${page.clientTimesheetOfAnotherPeriod and !page.submitted}">
     <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span> covers
     <span th:text="${page.clientTimesheetPeriod.orElse('')}">1 – 31 August 2026</span>, which is not part of
@@ -159,7 +137,6 @@
       <thead>
       <tr>
         <th scope="col">Day</th>
-        <th scope="col" title="Hours worked according to the client's timesheet">Client</th>
         <th scope="col" th:each="category : ${categories}" th:text="#{${'category.' + category}}">Worked</th>
         <th scope="col">Km</th>
         <th scope="col">Explanation</th>
@@ -174,7 +151,6 @@
       <tfoot th:fragment="totals" id="totals" th:hx-swap-oob="${oob} ? 'true'">
       <tr>
         <th scope="row">Total</th>
-        <td></td>
         <td th:each="category : ${categories}" th:text="${page.totalHours.get(category)}">168</td>
         <td th:text="${page.totalKilometres}">0</td>
         <td colspan="2"></td>

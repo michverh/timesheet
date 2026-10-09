@@ -7,7 +7,6 @@ import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DayEntry;
 import eu.openvalue.timesheet.domain.HourCategory;
-import eu.openvalue.timesheet.domain.HoursDifference;
 import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.LocalDate;
@@ -18,7 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Everything the timesheet page shows of a draft timesheet.
@@ -27,9 +25,8 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
     boolean registeredAbsencesUnknown, Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet,
-    boolean clientTimesheetUnreadable, List<String> differencesWithClient, Optional<String> clientTimesheetPeriod,
-    boolean clientTimesheetOfAnotherPeriod, List<String> daysDeviatingFromStandardWorkday,
-    int daysToTakeOverFromClient) {
+    boolean clientTimesheetUnreadable, Optional<String> clientTimesheetPeriod,
+    boolean clientTimesheetOfAnotherPeriod, List<String> daysDeviatingFromStandardWorkday) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
@@ -60,20 +57,13 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.clientTimesheet().map(ClientTimesheet::document).map(ClientTimesheetDocument::fileName),
         timesheet.lacksClientTimesheet(),
         timesheet.clientTimesheet().filter(ClientTimesheet::isUnreadable).isPresent(),
-        timesheet.differencesWithClientTimesheet().stream().map(TimesheetPage::describe).toList(),
         hoursReportedByClient(timesheet).flatMap(TimesheetPage::periodOf),
         timesheet.isClientTimesheetOfAnotherPeriod(),
-        timesheet.daysDeviatingFromStandardWorkday().stream().map(TimesheetPage::describe).toList(),
-        timesheet.differencesToTakeOverFromClient().size());
+        timesheet.daysDeviatingFromStandardWorkday().stream().map(TimesheetPage::describe).toList());
   }
 
   private static List<DayRow> rowsOf(Timesheet timesheet) {
-    var reported = hoursReportedByClient(timesheet);
-    var differing = timesheet.differencesWithClientTimesheet().stream().map(HoursDifference::date)
-        .collect(Collectors.toSet());
-    return timesheet.days().stream()
-        .map(day -> DayRow.of(day, reported.flatMap(hours -> hours.on(day.date())), differing.contains(day.date())))
-        .toList();
+    return timesheet.days().stream().map(DayRow::of).toList();
   }
 
   private static Optional<ClientReportedHours> hoursReportedByClient(Timesheet timesheet) {
@@ -103,10 +93,6 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         HoursFormat.format(DayEntry.STANDARD_WORKDAY));
   }
 
-  private static String describe(HoursDifference difference) {
-    return "%s: %s worked, %s according to the client".formatted(DAY_LABEL.format(difference.date()),
-        HoursFormat.format(difference.worked()), HoursFormat.format(difference.reportedByClient()));
-  }
 
   Optional<DayRow> day(LocalDate date) {
     return days.stream().filter(row -> row.date().equals(date)).findFirst();

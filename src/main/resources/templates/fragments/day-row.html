@@ -14,7 +14,6 @@
             th:title="|Adds up to ${row.workdayHours} instead of 8 hours|"
             th:text="${row.workdayHours}">7:30</span>
     </th>
-    <td class="client-hours" th:classappend="${row.differsFromClient} ? 'differs'" th:text="${row.clientHours}">8</td>
     <td th:each="category : ${categories}">
       <input type="text" class="hours" autocomplete="off"
              th:id="|${row.date}-${category}|"

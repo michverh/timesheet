@@ -3,7 +3,6 @@ package eu.openvalue.timesheet.domain;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,17 +67,6 @@ public final class ClientReportedHours {
 
   public boolean isEmpty() {
     return hoursWorked.isEmpty();
-  }
-
-  /**
-   * The days of the month that both cover, on which the hours worked differ from what the client registered.
-   */
-  List<HoursDifference> differencesWith(MonthOfDays days) {
-    return days.all().stream()
-        .filter(day -> hoursWorked.containsKey(day.date()))
-        .filter(day -> !day.hours(HourCategory.WORKED).equals(hoursWorked.get(day.date())))
-        .map(day -> new HoursDifference(day.date(), day.hours(HourCategory.WORKED), hoursWorked.get(day.date())))
-        .toList();
   }
 
   @Override

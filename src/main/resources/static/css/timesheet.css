@@ -306,20 +306,6 @@ fieldset.days:disabled input:hover {
   background: var(--warning-bg);
 }
 
-.timesheet .client-hours {
-  color: var(--muted);
-  text-align: center;
-  min-width: 3.5rem;
-}
-
-.timesheet .client-hours.differs {
-  color: var(--text);
-  font-weight: 600;
-  background: var(--warning-bg);
-  outline: 1px solid var(--warning-border);
-  outline-offset: -1px;
-}
-
 .htmx-indicator {
   display: none;
 }

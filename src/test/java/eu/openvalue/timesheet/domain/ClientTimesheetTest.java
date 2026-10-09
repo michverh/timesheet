@@ -1,6 +1,5 @@
 package eu.openvalue.timesheet.domain;
 
-import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
@@ -47,25 +46,6 @@ class ClientTimesheetTest {
   @Test
   void keepsTheDocumentWhateverWasRead() {
     assertThat(handedIn.readAs(REPORTED).document()).isEqualTo(DOCUMENT);
-  }
-
-  @Test
-  void differsFromTheDaysWhereTheHoursWorkedDiffer() {
-    // Given
-    var days = MonthOfDays.emptyFor(JULY_2026).with(DayEntry.empty(JULY_1).withHours(WORKED, Hours.of(8)));
-
-    // When / Then
-    assertThat(handedIn.readAs(REPORTED).differencesWith(days))
-        .containsExactly(new HoursDifference(JULY_1, Hours.of(8), Hours.of(7)));
-  }
-
-  @Test
-  void hasNoDifferencesBeforeItIsRead() {
-    // Given
-    var days = MonthOfDays.emptyFor(JULY_2026).with(DayEntry.empty(JULY_1).withHours(WORKED, Hours.of(8)));
-
-    // When / Then
-    assertThat(handedIn.differencesWith(days)).isEmpty();
   }
 
   @Test

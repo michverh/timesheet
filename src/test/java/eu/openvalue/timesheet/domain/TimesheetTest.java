@@ -440,46 +440,6 @@ class TimesheetTest {
   }
 
   @Test
-  void comparesTheHoursWorkedWithTheHoursReportedByTheClient() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
-
-    // When
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(7, 30))));
-
-    // Then
-    assertThat(timesheet.differencesWithClientTimesheet())
-        .containsExactly(new HoursDifference(A_DAY, Hours.of(8), Hours.of(7, 30)));
-  }
-
-  @Test
-  void comparesAgainAfterAdjustingTheHoursWorked() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(7, 30))));
-
-    // When
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(7, 30));
-
-    // Then
-    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
-  }
-
-  @Test
-  void hasNoDifferencesWithAClientsTimesheetThatHasNotBeenRead() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-
-    // When
-    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
-
-    // Then
-    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
-  }
-
-  @Test
   void forgetsTheReadingOfAReplacedClientsTimesheet() {
     // Given
     timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
@@ -566,8 +526,7 @@ class TimesheetTest {
     assertThat(restored.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
     assertThat(restored.submittedOn()).contains(SUBMISSION);
     assertThat(restored.previouslySubmittedOn()).contains(FIRST_SUBMISSION);
-    assertThat(restored.differencesWithClientTimesheet())
-        .containsExactly(new HoursDifference(A_DAY, Hours.of(8), Hours.of(7)));
+    assertThat(restored.clientTimesheet()).contains(clientTimesheet);
   }
 
   @Test
@@ -596,71 +555,4 @@ class TimesheetTest {
     assertThat(prefilled.daysDeviatingFromStandardWorkday()).extracting(DayEntry::date).containsExactly(A_DAY);
   }
 
-  @Test
-  void takesOverTheHoursWorkedAccordingToTheClient() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    readClientTimesheet(Map.of(A_DAY, Hours.of(7, 30)));
-
-    // When
-    timesheet.takeOverHoursReportedByClient();
-
-    // Then
-    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(7, 30));
-    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
-  }
-
-  @Test
-  void leavesHoursNoLongerWorkedUnbooked() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    readClientTimesheet(Map.of(A_DAY, Hours.ZERO));
-
-    // When
-    timesheet.takeOverHoursReportedByClient();
-
-    // Then
-    assertThat(timesheet.day(A_DAY).bookedHours()).isEmpty();
-  }
-
-  @Test
-  void leavesDaysWithOtherHoursFillingTheWorkdayToTheProfessional() {
-    // Given
-    timesheet.rebookDay(A_DAY, Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
-    readClientTimesheet(Map.of(A_DAY, Hours.of(8)));
-
-    // When
-    timesheet.takeOverHoursReportedByClient();
-
-    // Then
-    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(4));
-    assertThat(timesheet.differencesToTakeOverFromClient()).isEmpty();
-    assertThat(timesheet.differencesWithClientTimesheet()).hasSize(1);
-  }
-
-  @Test
-  void takesOverNothingOutsideTheMonth() {
-    // Given
-    readClientTimesheet(Map.of(LocalDate.of(2028, 3, 1), Hours.of(8)));
-
-    // When / Then
-    assertThat(timesheet.differencesToTakeOverFromClient()).isEmpty();
-  }
-
-  @Test
-  void cannotTakeOverTheClientsHoursOnceSubmitted() {
-    // Given
-    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    readClientTimesheet(Map.of(A_DAY, Hours.of(7)));
-    timesheet.submit(LocalDate.of(2028, 3, 1));
-
-    // When / Then
-    assertThatThrownBy(timesheet::takeOverHoursReportedByClient)
-        .isInstanceOf(TimesheetAlreadySubmittedException.class);
-  }
-
-  private void readClientTimesheet(Map<LocalDate, Hours> hoursWorked) {
-    timesheet.attachClientTimesheet(clientTimesheet("acme.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(hoursWorked));
-  }
 }

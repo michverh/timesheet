@@ -91,16 +91,6 @@ public final class DayEntry {
     return !isWeekend() && !workdayHours().equals(STANDARD_WORKDAY);
   }
 
-  /**
-   * Whether the hours worked can be replaced by others without guessing at the rest of the day: no hours are booked
-   * in the other categories filling the workday, and the day would not exceed 24 hours.
-   */
-  boolean canTakeOverHoursWorked(Hours worked) {
-    var others = hours.keySet().stream()
-        .anyMatch(category -> category != HourCategory.WORKED && category.fillsWorkday());
-    return !others && !totalHours().minus(hours(HourCategory.WORKED)).plus(worked).isGreaterThan(MAXIMUM_DAILY_HOURS);
-  }
-
   public Kilometres kilometres() {
     return kilometres;
   }

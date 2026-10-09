@@ -24,7 +24,6 @@ import eu.openvalue.timesheet.application.CorrectingTimesheet;
 import eu.openvalue.timesheet.application.DownloadingTimesheet;
 import eu.openvalue.timesheet.application.PreparingTimesheetDraft;
 import eu.openvalue.timesheet.application.SubmittingTimesheet;
-import eu.openvalue.timesheet.application.TakingOverClientHours;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
 import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.CorrectTimesheetUseCase;
@@ -32,7 +31,6 @@ import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
-import eu.openvalue.timesheet.application.port.in.TakeOverClientHoursUseCase;
 import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
@@ -127,11 +125,6 @@ class TimesheetConfiguration {
   @Bean
   CorrectTimesheetUseCase correctTimesheetUseCase(Timesheets timesheets) {
     return new CorrectingTimesheet(timesheets);
-  }
-
-  @Bean
-  TakeOverClientHoursUseCase takeOverClientHoursUseCase(Timesheets timesheets) {
-    return new TakingOverClientHours(timesheets);
   }
 
   /**

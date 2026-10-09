@@ -1,6 +1,5 @@
 package eu.openvalue.timesheet.domain;
 
-import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
@@ -49,45 +48,6 @@ class ClientReportedHoursTest {
 
     // Then
     assertThat(reported.on(JULY_3)).isEmpty();
-  }
-
-  @Test
-  void differsOnTheCoveredDaysWhereTheHoursWorkedDiffer() {
-    // Given
-    var days = MonthOfDays.emptyFor(YearMonth.of(2026, 7))
-        .with(DayEntry.empty(JULY_1).withHours(WORKED, Hours.of(8)))
-        .with(DayEntry.empty(JULY_2).withHours(WORKED, Hours.of(8)))
-        .with(DayEntry.empty(JULY_3).withHours(WORKED, Hours.of(8)));
-    var reported = new ClientReportedHours(Map.of(
-        JULY_1, Hours.ZERO,
-        JULY_2, Hours.of(8),
-        JULY_3, Hours.of(7, 30)));
-
-    // When / Then
-    assertThat(reported.differencesWith(days)).containsExactly(
-        new HoursDifference(JULY_1, Hours.of(8), Hours.ZERO),
-        new HoursDifference(JULY_3, Hours.of(8), Hours.of(7, 30)));
-  }
-
-  @Test
-  void leavesDaysOutsideTheMonthOutOfTheComparison() {
-    // Given
-    var days = MonthOfDays.emptyFor(YearMonth.of(2026, 7));
-    var reported = new ClientReportedHours(Map.of(LocalDate.of(2026, 6, 30), Hours.of(8)));
-
-    // When / Then
-    assertThat(reported.differencesWith(days)).isEmpty();
-  }
-
-  @Test
-  void leavesDaysItDoesNotCoverOutOfTheComparison() {
-    // Given
-    var days = MonthOfDays.emptyFor(YearMonth.of(2026, 7))
-        .with(DayEntry.empty(JULY_3).withHours(WORKED, Hours.of(8)));
-    var reported = new ClientReportedHours(Map.of(JULY_2, Hours.ZERO));
-
-    // When / Then
-    assertThat(reported.differencesWith(days)).isEmpty();
   }
 
   @Test

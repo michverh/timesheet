@@ -180,35 +180,6 @@ public final class Timesheet {
     return clientTimesheet().filter(client -> client.isOfAnotherPeriodThan(month())).isPresent();
   }
 
-  /**
-   * The days on which the hours booked as worked differ from the client's timesheet; none when it has not been read.
-   */
-  public List<HoursDifference> differencesWithClientTimesheet() {
-    return clientTimesheet().map(client -> client.differencesWith(days)).orElse(List.of());
-  }
-
-  /**
-   * The differences with the client's timesheet that taking over its hours would resolve: those on days with nothing
-   * else filling the workday. Days with, for instance, leave or sickness are left to the professional.
-   */
-  public List<HoursDifference> differencesToTakeOverFromClient() {
-    return differencesWithClientTimesheet().stream()
-        .filter(difference -> day(difference.date()).canTakeOverHoursWorked(difference.reportedByClient()))
-        .toList();
-  }
-
-  /**
-   * Books the hours worked according to the client's timesheet on the days where they differ and nothing else fills
-   * the workday. Hours no longer worked are not booked elsewhere.
-   *
-   * @throws TimesheetAlreadySubmittedException when the timesheet has been submitted
-   */
-  public void takeOverHoursReportedByClient() {
-    requireDraft();
-    differencesToTakeOverFromClient()
-        .forEach(difference -> bookHours(difference.date(), HourCategory.WORKED, difference.reportedByClient()));
-  }
-
   public Optional<ClientTimesheet> clientTimesheet() {
     return Optional.ofNullable(clientTimesheet);
   }

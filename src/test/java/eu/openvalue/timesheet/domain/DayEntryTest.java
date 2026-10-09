@@ -80,27 +80,4 @@ class DayEntryTest {
 
     assertThat(saturday.deviatesFromStandardWorkday()).isFalse();
   }
-
-  @Test
-  void canTakeOverHoursWorkedWhenNothingElseFillsTheWorkday() {
-    var day = DayEntry.of(A_DAY, Map.of(WORKED, Hours.of(8), OVERTIME, Hours.of(1)), Kilometres.ZERO,
-        Optional.empty());
-
-    assertThat(day.canTakeOverHoursWorked(Hours.of(7, 30))).isTrue();
-  }
-
-  @Test
-  void cannotTakeOverHoursWorkedWhenSomethingElseFillsTheWorkday() {
-    var day = DayEntry.of(A_DAY, Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)), Kilometres.ZERO, Optional.empty());
-
-    assertThat(day.canTakeOverHoursWorked(Hours.of(8))).isFalse();
-  }
-
-  @Test
-  void cannotTakeOverHoursWorkedThatWouldExceedADay() {
-    var day = DayEntry.of(A_DAY, Map.of(WORKED, Hours.of(8), STAND_BY, Hours.of(10)), Kilometres.ZERO,
-        Optional.empty());
-
-    assertThat(day.canTakeOverHoursWorked(Hours.of(15))).isFalse();
-  }
 }

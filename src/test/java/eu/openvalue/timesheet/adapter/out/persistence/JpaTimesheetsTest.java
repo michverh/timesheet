@@ -16,7 +16,6 @@ import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.Hours;
-import eu.openvalue.timesheet.domain.HoursDifference;
 import eu.openvalue.timesheet.domain.Kilometres;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Project;
@@ -193,8 +192,6 @@ class JpaTimesheetsTest {
     assertThat(kept.clientTimesheet().map(ClientTimesheet::document)).contains(clientTimesheet("acme-may.pdf"));
     assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).contains(new ClientReportedHours(Map.of(
         MONDAY, Hours.of(7, 30), TUESDAY, Hours.ZERO)));
-    assertThat(kept.differencesWithClientTimesheet())
-        .containsExactly(new HoursDifference(MONDAY, Hours.of(8), Hours.of(7, 30)));
   }
 
   @Test
