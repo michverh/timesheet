@@ -1,5 +1,6 @@
 package eu.openvalue.timesheet.application;
 
+import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -16,6 +17,7 @@ import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.time.YearMonth;
 import java.util.Map;
 import java.util.Optional;
@@ -31,11 +33,11 @@ class AttachingClientTimesheetTest {
   private static final ClientReportedHours REPORTED =
       new ClientReportedHours(Map.of(LocalDate.of(2026, 5, 4), Hours.of(8)));
 
-  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
+  private final FakeTimesheets timesheets = new FakeTimesheets();
 
   @BeforeEach
   void startDraft() {
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME")))));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME")))));
   }
 
   @Test
@@ -82,10 +84,29 @@ class AttachingClientTimesheetTest {
   }
 
   private AttachingClientTimesheet attaching(ClientTimesheetReader reader) {
-    return new AttachingClientTimesheet(drafts, reader);
+    return new AttachingClientTimesheet(timesheets, reader);
   }
 
   private Timesheet draft() {
-    return drafts.find(JAN, MAY_2026).orElseThrow();
+    return timesheets.find(JAN, MAY_2026).orElseThrow();
+  }
+
+  @Test
+  void readsTheClientsTimesheetOnceWhenTheDraftIsChangedConcurrently() {
+    // Given
+    var readings = new AtomicInteger();
+    var monday = LocalDate.of(2026, 5, 4);
+    timesheets.changeConcurrently(changed -> changed.bookHours(monday, WORKED, Hours.of(6)));
+
+    // When
+    attaching(document -> {
+      readings.incrementAndGet();
+      return REPORTED;
+    }).attach(new AttachClientTimesheetCommand(JAN, MAY_2026, DOCUMENT));
+
+    // Then
+    assertThat(readings).hasValue(1);
+    assertThat(draft().hoursReportedByClient()).contains(REPORTED);
+    assertThat(draft().day(monday).hours(WORKED)).isEqualTo(Hours.of(6));
   }
 }

@@ -122,4 +122,12 @@ class ClientReportedHoursTest {
 
     assertThat(reported.coversAnyDayOf(YearMonth.of(2026, 10))).isFalse();
   }
+
+  @Test
+  void givesTheHoursWorkedPerDayInOrder() {
+    var reported = new ClientReportedHours(Map.of(JULY_3, Hours.of(8), JULY_1, Hours.of(7, 30)));
+
+    assertThat(reported.hoursWorkedPerDay()).containsExactly(
+        Map.entry(JULY_1, Hours.of(7, 30)), Map.entry(JULY_3, Hours.of(8)));
+  }
 }

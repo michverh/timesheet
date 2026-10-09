@@ -1,6 +1,7 @@
 package eu.openvalue.timesheet.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.domain.SubmissionState.Draft;
 import eu.openvalue.timesheet.domain.SubmissionState.Submitted;
@@ -52,5 +53,23 @@ class SubmissionStateTest {
 
     // Then
     assertThat(reopenedAgain.previouslySubmittedOn()).contains(CORRECTION);
+  }
+
+  @Test
+  void isADraftWhenNotSubmitted() {
+    assertThat(SubmissionState.of(Optional.empty(), Optional.of(FIRST_SUBMISSION)))
+        .isEqualTo(new Draft(Optional.of(FIRST_SUBMISSION)));
+  }
+
+  @Test
+  void isSubmittedWhenSubmitted() {
+    assertThat(SubmissionState.of(Optional.of(CORRECTION), Optional.of(FIRST_SUBMISSION)))
+        .isEqualTo(new Submitted(CORRECTION, Optional.of(FIRST_SUBMISSION)));
+  }
+
+  @Test
+  void cannotBeSubmittedBeforeTheSubmissionItCorrects() {
+    assertThatThrownBy(() -> new Submitted(FIRST_SUBMISSION, Optional.of(CORRECTION)))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

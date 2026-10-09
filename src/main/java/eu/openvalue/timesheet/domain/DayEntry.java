@@ -27,6 +27,19 @@ public final class DayEntry {
     this.explanation = explanation;
   }
 
+  /**
+   * A day as it was booked, for instance as kept by a repository.
+   *
+   * @throws DailyHoursLimitExceededException when the day's total exceeds 24 hours
+   */
+  public static DayEntry of(LocalDate date, Map<HourCategory, Hours> hours, Kilometres kilometres,
+      Optional<Explanation> explanation) {
+    Objects.requireNonNull(explanation, "explanation");
+    return empty(date).withBookedHours(Objects.requireNonNull(hours, "hours"))
+        .withKilometres(kilometres)
+        .withExplanation(explanation.orElse(null));
+  }
+
   static DayEntry empty(LocalDate date) {
     return new DayEntry(Objects.requireNonNull(date, "date"), new EnumMap<>(HourCategory.class), Kilometres.ZERO, null);
   }

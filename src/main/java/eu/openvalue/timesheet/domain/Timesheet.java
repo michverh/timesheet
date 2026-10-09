@@ -44,6 +44,38 @@ public final class Timesheet {
     return new Timesheet(month, professional, assignment.orElse(null));
   }
 
+  /**
+   * Restores a timesheet as it was kept, for instance by a repository, refusing states it could never have reached.
+   *
+   * @param days exactly one entry for every day of the month
+   * @param submittedOn when the timesheet was submitted, or empty while it is a draft
+   * @param previouslySubmittedOn when it was submitted before being reopened for correction, if it ever was
+   * @param hoursReportedByClient what was read from the client's timesheet, if it was read
+   * @throws IllegalArgumentException when the state is not one a timesheet can be in
+   */
+  public static Timesheet restore(YearMonth month, Professional professional, Optional<Assignment> assignment,
+      List<DayEntry> days, boolean registeredAbsencesUnknown, Optional<LocalDate> submittedOn,
+      Optional<LocalDate> previouslySubmittedOn, Optional<ClientTimesheetDocument> clientTimesheet,
+      Optional<ClientReportedHours> hoursReportedByClient, boolean clientTimesheetUnreadable) {
+    Objects.requireNonNull(days, "days");
+    Objects.requireNonNull(clientTimesheet, "clientTimesheet");
+    Objects.requireNonNull(hoursReportedByClient, "hoursReportedByClient");
+    if (clientTimesheet.isEmpty() && (hoursReportedByClient.isPresent() || clientTimesheetUnreadable)) {
+      throw new IllegalArgumentException("Only a client's timesheet that was handed in can have been read");
+    }
+    if (hoursReportedByClient.isPresent() && clientTimesheetUnreadable) {
+      throw new IllegalArgumentException("A client's timesheet cannot have been both read and found unreadable");
+    }
+    var timesheet = start(month, professional, assignment);
+    timesheet.days = MonthOfDays.of(month, days);
+    timesheet.registeredAbsencesUnknown = registeredAbsencesUnknown;
+    timesheet.submission = SubmissionState.of(submittedOn, previouslySubmittedOn);
+    timesheet.clientTimesheet = clientTimesheet.orElse(null);
+    timesheet.hoursReportedByClient = hoursReportedByClient.orElse(null);
+    timesheet.clientTimesheetUnreadable = clientTimesheetUnreadable;
+    return timesheet;
+  }
+
   public YearMonth month() {
     return month;
   }

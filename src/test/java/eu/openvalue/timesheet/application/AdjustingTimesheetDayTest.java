@@ -27,8 +27,8 @@ class AdjustingTimesheetDayTest {
   private static final LocalDate MONDAY = LocalDate.of(2026, 5, 4);
   private static final Professional JAN = Professional.withEmail("jan.jansen@openvalue.nl");
 
-  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
-  private final AdjustingTimesheetDay adjustDay = new AdjustingTimesheetDay(drafts);
+  private final FakeTimesheets timesheets = new FakeTimesheets();
+  private final AdjustingTimesheetDay adjustDay = new AdjustingTimesheetDay(timesheets);
 
   private Timesheet draft;
 
@@ -37,7 +37,7 @@ class AdjustingTimesheetDayTest {
     draft = Timesheet.start(MAY_2026, JAN, Optional.empty());
     draft.bookHours(MONDAY, WORKED, Hours.of(8));
     draft.explain(MONDAY, new Explanation("Old explanation"));
-    drafts.save(draft);
+    timesheets.save(draft);
   }
 
   @Test
@@ -46,7 +46,7 @@ class AdjustingTimesheetDayTest {
     adjustDay.adjustDay(command(Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)), Kilometres.ZERO, Optional.empty()));
 
     // Then
-    assertThat(drafts.find(JAN, MAY_2026).orElseThrow().day(MONDAY).bookedHours())
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY).bookedHours())
         .isEqualTo(Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
   }
 
@@ -76,7 +76,7 @@ class AdjustingTimesheetDayTest {
     assertThatThrownBy(() -> adjustDay.adjustDay(
         command(Map.of(WORKED, Hours.of(25)), Kilometres.of(50), Optional.of(new Explanation("Too much")))))
         .isInstanceOf(DailyHoursLimitExceededException.class);
-    var day = drafts.find(JAN, MAY_2026).orElseThrow().day(MONDAY);
+    var day = timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY);
     assertThat(day.bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
     assertThat(day.kilometres()).isEqualTo(Kilometres.ZERO);
     assertThat(day.explanation()).contains(new Explanation("Old explanation"));
@@ -96,5 +96,20 @@ class AdjustingTimesheetDayTest {
   private static AdjustTimesheetDayCommand command(Map<HourCategory, Hours> hours,
       Kilometres kilometres, Optional<Explanation> explanation) {
     return new AdjustTimesheetDayCommand(JAN, MONDAY, hours, kilometres, explanation);
+  }
+
+  @Test
+  void keepsWhatWasChangedConcurrentlyOnAnotherDay() {
+    // Given
+    var tuesday = MONDAY.plusDays(1);
+    timesheets.changeConcurrently(changed -> changed.bookHours(tuesday, WORKED, Hours.of(6)));
+
+    // When
+    adjustDay.adjustDay(command(Map.of(WORKED, Hours.of(4)), Kilometres.ZERO, Optional.empty()));
+
+    // Then
+    var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
+    assertThat(kept.day(MONDAY).hours(WORKED)).isEqualTo(Hours.of(4));
+    assertThat(kept.day(tuesday).hours(WORKED)).isEqualTo(Hours.of(6));
   }
 }

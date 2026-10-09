@@ -5,11 +5,16 @@ import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetUnreadableException;
-import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
+import eu.openvalue.timesheet.application.port.out.Timesheets;
+import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
+import java.time.YearMonth;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Hands in the client's timesheet and reads the hours worked from it, so they can be compared. A timesheet that cannot
@@ -19,32 +24,48 @@ public final class AttachingClientTimesheet implements AttachClientTimesheetUseC
 
   private static final Logger LOGGER = System.getLogger(AttachingClientTimesheet.class.getName());
 
-  private final TimesheetDrafts drafts;
+  private final Timesheets timesheets;
   private final ClientTimesheetReader reader;
 
-  public AttachingClientTimesheet(TimesheetDrafts drafts, ClientTimesheetReader reader) {
-    this.drafts = Objects.requireNonNull(drafts, "drafts");
+  public AttachingClientTimesheet(Timesheets timesheets, ClientTimesheetReader reader) {
+    this.timesheets = Objects.requireNonNull(timesheets, "timesheets");
     this.reader = Objects.requireNonNull(reader, "reader");
   }
 
+  /**
+   * Reads the client's timesheet only once, also when another change to the timesheet gets in between, since reading
+   * can be slow and costly.
+   */
   @Override
   public void attach(AttachClientTimesheetCommand command) {
     var professional = command.professional();
     var month = command.month();
-    var draft = drafts.find(professional, month)
-        .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
-    draft.attachClientTimesheet(command.document());
-    readHoursReportedByClient(draft);
-    drafts.save(draft);
+    var document = command.document();
+    // Refuses before reading when the timesheet cannot take the client's timesheet, such as when it was submitted.
+    draftOf(professional, month).attachClientTimesheet(document);
+    var reading = read(document);
+    ConcurrentChanges.retried(() -> {
+      var draft = draftOf(professional, month);
+      draft.attachClientTimesheet(document);
+      reading.ifPresentOrElse(draft::recordHoursReportedByClient, draft::markClientTimesheetUnreadable);
+      timesheets.save(draft);
+    });
   }
 
-  private void readHoursReportedByClient(Timesheet draft) {
-    var document = draft.clientTimesheet().orElseThrow();
+  private Timesheet draftOf(Professional professional, YearMonth month) {
+    return timesheets.find(professional, month)
+        .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
+  }
+
+  /**
+   * @return the hours worked according to the client's timesheet, or empty when they could not be read
+   */
+  private Optional<ClientReportedHours> read(ClientTimesheetDocument document) {
     try {
-      draft.recordHoursReportedByClient(reader.read(document));
+      return Optional.of(reader.read(document));
     } catch (ClientTimesheetUnreadableException e) {
       LOGGER.log(Level.WARNING, "Could not read the hours from client timesheet %s".formatted(document), e);
-      draft.markClientTimesheetUnreadable();
+      return Optional.empty();
     }
   }
 }

@@ -3,25 +3,29 @@ package eu.openvalue.timesheet.application;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayCommand;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
 import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
-import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
+import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.YearMonth;
 import java.util.Objects;
 
 public final class AdjustingTimesheetDay implements AdjustTimesheetDayUseCase {
 
-  private final TimesheetDrafts drafts;
+  private final Timesheets timesheets;
 
-  public AdjustingTimesheetDay(TimesheetDrafts drafts) {
-    this.drafts = Objects.requireNonNull(drafts, "drafts");
+  public AdjustingTimesheetDay(Timesheets timesheets) {
+    this.timesheets = Objects.requireNonNull(timesheets, "timesheets");
   }
 
   @Override
   public Timesheet adjustDay(AdjustTimesheetDayCommand command) {
+    return ConcurrentChanges.retried(() -> adjust(command));
+  }
+
+  private Timesheet adjust(AdjustTimesheetDayCommand command) {
     var professional = command.professional();
     var date = command.date();
     var month = YearMonth.from(date);
-    var draft = drafts.find(professional, month)
+    var draft = timesheets.find(professional, month)
         .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
 
     draft.rebookDay(date, command.hours());
@@ -29,7 +33,7 @@ public final class AdjustingTimesheetDay implements AdjustTimesheetDayUseCase {
     command.explanation().ifPresentOrElse(
         explanation -> draft.explain(date, explanation),
         () -> draft.removeExplanation(date));
-    drafts.save(draft);
+    timesheets.save(draft);
     return draft;
   }
 }

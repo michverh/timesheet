@@ -6,9 +6,10 @@ import eu.openvalue.timesheet.adapter.out.absence.AbsenceRegistryProperties;
 import eu.openvalue.timesheet.adapter.out.absence.HttpAbsenceRegistry;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
-import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
 import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
+import eu.openvalue.timesheet.adapter.out.persistence.JpaTimesheets;
+import eu.openvalue.timesheet.adapter.out.persistence.TimesheetEntityRepository;
 import eu.openvalue.timesheet.adapter.out.reading.ClaudeProperties;
 import eu.openvalue.timesheet.adapter.out.reading.ClaudeTranscriber;
 import eu.openvalue.timesheet.adapter.out.reading.OllamaProperties;
@@ -34,7 +35,7 @@ import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
-import eu.openvalue.timesheet.application.port.out.TimesheetDrafts;
+import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
@@ -82,8 +83,8 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  TimesheetDrafts timesheetDrafts() {
-    return new InMemoryTimesheetDrafts();
+  Timesheets timesheets(TimesheetEntityRepository repository) {
+    return new JpaTimesheets(repository);
   }
 
   /**
@@ -91,13 +92,13 @@ class TimesheetConfiguration {
    */
   @Bean
   PreparingTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill,
-      AbsenceRegistry absenceRegistry, Assignments assignments, TimesheetDrafts drafts) {
-    return new PreparingTimesheetDraft(prefill, absenceRegistry, assignments, drafts);
+      AbsenceRegistry absenceRegistry, Assignments assignments, Timesheets timesheets) {
+    return new PreparingTimesheetDraft(prefill, absenceRegistry, assignments, timesheets);
   }
 
   @Bean
-  AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(TimesheetDrafts drafts) {
-    return new AdjustingTimesheetDay(drafts);
+  AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(Timesheets timesheets) {
+    return new AdjustingTimesheetDay(timesheets);
   }
 
   @Bean
@@ -106,8 +107,8 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  DownloadTimesheetUseCase downloadTimesheetUseCase(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet) {
-    return new DownloadingTimesheet(drafts, spreadsheet);
+  DownloadTimesheetUseCase downloadTimesheetUseCase(Timesheets timesheets, TimesheetSpreadsheet spreadsheet) {
+    return new DownloadingTimesheet(timesheets, spreadsheet);
   }
 
   @Bean
@@ -116,14 +117,14 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  SubmitTimesheetUseCase submitTimesheetUseCase(TimesheetDrafts drafts, TimesheetSpreadsheet spreadsheet,
+  SubmitTimesheetUseCase submitTimesheetUseCase(Timesheets timesheets, TimesheetSpreadsheet spreadsheet,
       TimesheetDelivery delivery, Clock clock) {
-    return new SubmittingTimesheet(drafts, spreadsheet, delivery, clock);
+    return new SubmittingTimesheet(timesheets, spreadsheet, delivery, clock);
   }
 
   @Bean
-  CorrectTimesheetUseCase correctTimesheetUseCase(TimesheetDrafts drafts) {
-    return new CorrectingTimesheet(drafts);
+  CorrectTimesheetUseCase correctTimesheetUseCase(Timesheets timesheets) {
+    return new CorrectingTimesheet(timesheets);
   }
 
   /**
@@ -148,7 +149,7 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  AttachClientTimesheetUseCase attachClientTimesheetUseCase(TimesheetDrafts drafts, ClientTimesheetReader reader) {
-    return new AttachingClientTimesheet(drafts, reader);
+  AttachClientTimesheetUseCase attachClientTimesheetUseCase(Timesheets timesheets, ClientTimesheetReader reader) {
+    return new AttachingClientTimesheet(timesheets, reader);
   }
 }

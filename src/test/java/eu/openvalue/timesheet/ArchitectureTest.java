@@ -22,6 +22,7 @@ class ArchitectureTest {
   private static final String ADAPTER_IN = ROOT + ".adapter.in..";
   private static final String ADAPTER_OUT = ROOT + ".adapter.out..";
   private static final String CONFIGURATION = ROOT + ".configuration..";
+  private static final String PERSISTENCE_ADAPTER = ROOT + ".adapter.out.persistence..";
   private static final String INBOUND_PORTS = ROOT + ".application.port.in..";
   private static final String OUTBOUND_PORTS = ROOT + ".application.port.out..";
 
@@ -67,11 +68,11 @@ class ArchitectureTest {
       .because("outbound adapters only implement the ports the application core defines");
 
   @ArchTest
-  static final ArchRule persistenceStaysInOutboundAdapters = noClasses()
-      .that().resideOutsideOfPackage(ADAPTER_OUT)
+  static final ArchRule persistenceStaysInThePersistenceAdapter = noClasses()
+      .that().resideOutsideOfPackages(PERSISTENCE_ADAPTER, CONFIGURATION)
       .should().dependOnClassesThat().resideInAnyPackage("jakarta.persistence..", "org.hibernate..",
-          "org.springframework.data..")
-      .because("persistence is an implementation detail of the outbound adapters");
+          "org.springframework.data..", "org.springframework.transaction..", "org.flywaydb..")
+      .because("how timesheets are stored is an implementation detail of the persistence adapter");
 
   @ArchTest
   static final ArchRule documentLibrariesStayInOutboundAdapters = noClasses()

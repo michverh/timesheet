@@ -1,7 +1,9 @@
 package eu.openvalue.timesheet.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
+import eu.openvalue.timesheet.adapter.out.persistence.TimesheetEntityRepository;
 import eu.openvalue.timesheet.adapter.out.reading.ClaudeTranscriber;
 import eu.openvalue.timesheet.adapter.out.reading.OllamaTranscriber;
 import eu.openvalue.timesheet.adapter.out.reading.Transcriber;
@@ -15,6 +17,7 @@ class TimesheetConfigurationTest {
   private final ApplicationContextRunner context = new ApplicationContextRunner()
       .withUserConfiguration(TimesheetConfiguration.class)
       .withBean(JavaMailSender.class, JavaMailSenderImpl::new)
+      .withBean(TimesheetEntityRepository.class, () -> mock(TimesheetEntityRepository.class))
       .withPropertyValues(
           "timesheet.professional.email=jan.jansen@openvalue.nl",
           "timesheet.absence-registry.base-url=http://localhost:8090",

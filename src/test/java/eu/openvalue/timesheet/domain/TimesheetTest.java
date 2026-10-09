@@ -18,6 +18,8 @@ class TimesheetTest {
 
   private static final YearMonth FEBRUARY_2028 = YearMonth.of(2028, 2);
   private static final LocalDate A_DAY = LocalDate.of(2028, 2, 10);
+  private static final LocalDate FIRST_SUBMISSION = LocalDate.of(2028, 3, 1);
+  private static final LocalDate SUBMISSION = LocalDate.of(2028, 3, 4);
   private static final Professional PROFESSIONAL = Professional.withEmail("jan.jansen@openvalue.nl");
 
   private final Timesheet timesheet = Timesheet.start(FEBRUARY_2028, PROFESSIONAL,
@@ -547,5 +549,66 @@ class TimesheetTest {
 
   private static ClientTimesheetDocument clientTimesheet(String fileName) {
     return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, new byte[] {1, 2, 3});
+  }
+
+  @Test
+  void canBeRestoredAsItWasKept() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    var reading = new ClientReportedHours(Map.of(A_DAY, Hours.of(7)));
+
+    // When
+    var restored = restore(timesheet.days(), Optional.of(SUBMISSION), Optional.of(clientTimesheet("acme.pdf")),
+        Optional.of(reading), false);
+
+    // Then
+    assertThat(restored.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
+    assertThat(restored.submittedOn()).contains(SUBMISSION);
+    assertThat(restored.previouslySubmittedOn()).contains(FIRST_SUBMISSION);
+    assertThat(restored.differencesWithClientTimesheet())
+        .containsExactly(new HoursDifference(A_DAY, Hours.of(8), Hours.of(7)));
+  }
+
+  @Test
+  void restoresTheClientsTimesheetAsUnreadable() {
+    // When
+    var restored = restore(timesheet.days(), Optional.empty(), Optional.of(clientTimesheet("acme.pdf")),
+        Optional.empty(), true);
+
+    // Then
+    assertThat(restored.isClientTimesheetUnreadable()).isTrue();
+  }
+
+  @Test
+  void cannotBeRestoredWithAReadingWithoutAClientsTimesheet() {
+    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.empty(),
+        Optional.of(new ClientReportedHours(Map.of())), false))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeRestoredAsUnreadableWithoutAClientsTimesheet() {
+    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.empty(), Optional.empty(), true))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeRestoredAsBothReadAndUnreadable() {
+    assertThatThrownBy(() -> restore(timesheet.days(), Optional.empty(), Optional.of(clientTimesheet("acme.pdf")),
+        Optional.of(new ClientReportedHours(Map.of())), true))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeRestoredWithoutEveryDayOfTheMonth() {
+    assertThatThrownBy(() -> restore(timesheet.days().subList(0, 28), Optional.empty(), Optional.empty(),
+        Optional.empty(), false))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  private static Timesheet restore(List<DayEntry> days, Optional<LocalDate> submittedOn,
+      Optional<ClientTimesheetDocument> clientTimesheet, Optional<ClientReportedHours> reading, boolean unreadable) {
+    return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days, false,
+        submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet, reading, unreadable);
   }
 }

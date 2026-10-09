@@ -42,6 +42,13 @@ public final class ClientReportedHours {
   }
 
   /**
+   * The hours worked on every day the client's timesheet covers.
+   */
+  public SortedMap<LocalDate, Hours> hoursWorkedPerDay() {
+    return Collections.unmodifiableSortedMap(hoursWorked);
+  }
+
+  /**
    * The first day the client's timesheet covers, or empty when it covers no days.
    */
   public Optional<LocalDate> firstDay() {

@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -92,5 +93,46 @@ class MonthOfDaysTest {
 
     // When / Then
     assertThat(withTraining.daysLackingRequiredExplanation()).containsExactly(A_DAY);
+  }
+
+  @Test
+  void canBeRestoredFromAnEntryForEveryDay() {
+    // Given
+    var entries = days.with(DayEntry.empty(A_DAY).withHours(WORKED, Hours.of(8))).all();
+
+    // When
+    var restored = MonthOfDays.of(FEBRUARY_2028, entries);
+
+    // Then
+    assertThat(restored.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
+  }
+
+  @Test
+  void cannotBeRestoredWithADayMissing() {
+    // Given
+    var entries = days.all().subList(1, 29);
+
+    // When / Then
+    assertThatThrownBy(() -> MonthOfDays.of(FEBRUARY_2028, entries)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeRestoredWithADayTwice() {
+    // Given
+    var entries = new ArrayList<>(days.all().subList(1, 29));
+    entries.add(DayEntry.empty(A_DAY));
+
+    // When / Then
+    assertThatThrownBy(() -> MonthOfDays.of(FEBRUARY_2028, entries)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void cannotBeRestoredWithADayOfAnotherMonth() {
+    // Given
+    var entries = new ArrayList<>(days.all().subList(1, 29));
+    entries.add(DayEntry.empty(LocalDate.of(2028, 3, 1)));
+
+    // When / Then
+    assertThatThrownBy(() -> MonthOfDays.of(FEBRUARY_2028, entries)).isInstanceOf(IllegalArgumentException.class);
   }
 }

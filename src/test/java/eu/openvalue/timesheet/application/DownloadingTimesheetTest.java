@@ -19,17 +19,17 @@ class DownloadingTimesheetTest {
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final Professional JAN = Professional.withEmail("jan.van.der.berg@openvalue.nl");
 
-  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
+  private final FakeTimesheets timesheets = new FakeTimesheets();
   private final TimesheetSpreadsheet spreadsheet = timesheet -> new SpreadsheetFile("ods",
       "application/vnd.oasis.opendocument.spreadsheet",
       ("spreadsheet of " + timesheet.professional().name() + " for " + timesheet.month())
           .getBytes(StandardCharsets.UTF_8));
-  private final DownloadingTimesheet download = new DownloadingTimesheet(drafts, spreadsheet);
+  private final DownloadingTimesheet download = new DownloadingTimesheet(timesheets, spreadsheet);
 
   @Test
   void givesTheDraftAsSpreadsheet() {
     // Given
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
 
     // When
     var downloaded = download.download(new DownloadTimesheetCommand(JAN, MAY_2026));
@@ -43,7 +43,7 @@ class DownloadingTimesheetTest {
   @Test
   void namesTheFileAfterTheMonthAndProfessionalInTheFormatOfTheSpreadsheet() {
     // Given
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
 
     // When
     var downloaded = download.download(new DownloadTimesheetCommand(JAN, MAY_2026));

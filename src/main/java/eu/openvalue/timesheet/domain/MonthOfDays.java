@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.domain;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.SortedMap;
@@ -26,6 +27,25 @@ final class MonthOfDays {
     var days = new TreeMap<LocalDate, DayEntry>();
     month.atDay(1).datesUntil(month.atEndOfMonth().plusDays(1)).forEach(date -> days.put(date, DayEntry.empty(date)));
     return new MonthOfDays(month, days);
+  }
+
+  /**
+   * @throws IllegalArgumentException when the entries are not exactly one for every day of the month
+   */
+  static MonthOfDays of(YearMonth month, List<DayEntry> entries) {
+    var days = emptyFor(month);
+    var dates = new HashSet<LocalDate>();
+    for (var entry : entries) {
+      if (!dates.add(entry.date())) {
+        throw new IllegalArgumentException("%s has more than one entry".formatted(entry.date()));
+      }
+      days = days.with(entry);
+    }
+    if (dates.size() != month.lengthOfMonth()) {
+      throw new IllegalArgumentException("%s needs an entry for each of its %d days, not %d".formatted(
+          month, month.lengthOfMonth(), dates.size()));
+    }
+    return days;
   }
 
   List<DayEntry> all() {

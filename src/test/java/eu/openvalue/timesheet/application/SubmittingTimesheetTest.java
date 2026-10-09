@@ -13,6 +13,7 @@ import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
+import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.FutureMonthNotSubmittableException;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
@@ -32,7 +33,7 @@ class SubmittingTimesheetTest {
   private static final LocalDate TODAY = LocalDate.of(2026, 6, 2);
   private static final Professional JAN = Professional.withEmail("jan.jansen@openvalue.nl");
 
-  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
+  private final FakeTimesheets timesheets = new FakeTimesheets();
   private final SpreadsheetFile file = new SpreadsheetFile("ods", "application/vnd.oasis.opendocument.spreadsheet",
       new byte[] {1, 2, 3});
   private final TimesheetSpreadsheet spreadsheet = timesheet -> file;
@@ -40,7 +41,7 @@ class SubmittingTimesheetTest {
   private final Clock clock = Clock.fixed(Instant.parse("2026-06-02T08:00:00Z"), ZoneId.of("Europe/Amsterdam"));
 
   private SubmittingTimesheet submitTimesheet(TimesheetDelivery delivery) {
-    return new SubmittingTimesheet(drafts, spreadsheet, delivery, clock);
+    return new SubmittingTimesheet(timesheets, spreadsheet, delivery, clock);
   }
 
   private final SubmittingTimesheet submit = submitTimesheet(delivered::add);
@@ -48,7 +49,7 @@ class SubmittingTimesheetTest {
   @Test
   void handsTheSpreadsheetInWithTheCompanysFileName() {
     // Given
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
 
     // When
     submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
@@ -70,7 +71,7 @@ class SubmittingTimesheetTest {
     var timesheet = Timesheet.start(MAY_2026, JAN, Optional.empty());
     var clientTimesheet = new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {9});
     timesheet.attachClientTimesheet(clientTimesheet);
-    drafts.save(timesheet);
+    timesheets.save(timesheet);
 
     // When
     submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
@@ -84,13 +85,13 @@ class SubmittingTimesheetTest {
   @Test
   void marksTheTimesheetSubmittedToday() {
     // Given
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
 
     // When
     submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(drafts.find(JAN, MAY_2026).orElseThrow().submittedOn()).contains(TODAY);
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().submittedOn()).contains(TODAY);
   }
 
   @Test
@@ -99,7 +100,7 @@ class SubmittingTimesheetTest {
     var timesheet = Timesheet.start(MAY_2026, JAN, Optional.empty());
     timesheet.submit(LocalDate.of(2026, 5, 29));
     timesheet.reopenForCorrection();
-    drafts.save(timesheet);
+    timesheets.save(timesheet);
 
     // When
     submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
@@ -113,7 +114,7 @@ class SubmittingTimesheetTest {
   @Test
   void leavesTheTimesheetADraftWhenItCannotBeHandedIn() {
     // Given
-    drafts.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
     var failingSubmit = submitTimesheet(submission -> {
       throw new TimesheetDeliveryFailedException("Mail server unavailable", null);
     });
@@ -121,14 +122,14 @@ class SubmittingTimesheetTest {
     // When / Then
     assertThatThrownBy(() -> failingSubmit.submit(new SubmitTimesheetCommand(JAN, MAY_2026)))
         .isInstanceOf(TimesheetSubmissionFailedException.class);
-    assertThat(drafts.find(JAN, MAY_2026).orElseThrow().isSubmitted()).isFalse();
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().isSubmitted()).isFalse();
   }
 
   @Test
   void handsNothingInWhenTheTimesheetCannotBeSubmitted() {
     // Given
     var nextMonth = YearMonth.of(2026, 7);
-    drafts.save(Timesheet.start(nextMonth, JAN, Optional.empty()));
+    timesheets.save(Timesheet.start(nextMonth, JAN, Optional.empty()));
 
     // When / Then
     assertThatThrownBy(() -> submit.submit(new SubmitTimesheetCommand(JAN, nextMonth)))
@@ -140,5 +141,20 @@ class SubmittingTimesheetTest {
   void requiresADraftForTheMonth() {
     assertThatThrownBy(() -> submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026)))
         .isInstanceOf(TimesheetDraftNotFoundException.class);
+  }
+
+  @Test
+  void handsTheTimesheetInOnceWhenItIsChangedConcurrently() {
+    // Given
+    timesheets.save(Timesheet.start(MAY_2026, JAN, Optional.empty()));
+    timesheets.changeConcurrently(changed -> changed.explain(TODAY.withDayOfMonth(1).minusMonths(1),
+        new Explanation("Changed while submitting")));
+
+    // When
+    submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(delivered).hasSize(1);
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().submittedOn()).contains(TODAY);
   }
 }

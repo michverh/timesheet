@@ -11,6 +11,15 @@ spring:
       # The client's own timesheet can be at most 10 MB.
       max-file-size: 10MB
       max-request-size: 11MB
+  # Locally PostgreSQL from compose.yaml; Flyway owns the schema, Hibernate only checks it.
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        # Loads the days of a timesheet and their hours in a few queries instead of one per day.
+        default_batch_fetch_size: 50
   # Mailpit from compose.yaml catches all mail; see http://localhost:8025
   mail:
     host: localhost

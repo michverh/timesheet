@@ -42,18 +42,18 @@ class PreparingTimesheetDraftTest {
   private final Assignments assignments = (professional, month) ->
       professional.equals(JAN) ? Optional.of(AT_ACME) : Optional.empty();
 
-  private final FakeTimesheetDrafts drafts = new FakeTimesheetDrafts();
+  private final FakeTimesheets timesheets = new FakeTimesheets();
 
   private final PreparingTimesheetDraft prepareDraft = new PreparingTimesheetDraft(
-      new TimesheetPrefill(new DutchPublicHolidays()), absenceRegistry, assignments, drafts);
+      new TimesheetPrefill(new DutchPublicHolidays()), absenceRegistry, assignments, timesheets);
 
   @Test
   void keepsTheNewDraft() {
     // When
-    var timesheet = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(drafts.find(JAN, MAY_2026)).containsSame(timesheet);
+    assertThat(timesheets.find(JAN, MAY_2026)).isPresent();
   }
 
   @Test
@@ -61,6 +61,7 @@ class PreparingTimesheetDraftTest {
     // Given
     var existing = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
     existing.bookHours(MONDAY, WORKED, Hours.of(2));
+    timesheets.save(existing);
 
     // When
     var timesheet = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
@@ -72,21 +73,24 @@ class PreparingTimesheetDraftTest {
   @Test
   void prefillsTheDraftAgainWhenReset() {
     // Given
-    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026))
-        .bookHours(MONDAY.plusDays(1), WORKED, Hours.of(2));
+    var draft = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    draft.bookHours(MONDAY.plusDays(1), WORKED, Hours.of(2));
+    timesheets.save(draft);
 
     // When
-    var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+    prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(reset.day(MONDAY.plusDays(1)).hours(WORKED)).isEqualTo(Hours.of(8));
-    assertThat(drafts.find(JAN, MAY_2026)).containsSame(reset);
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).hours(WORKED))
+        .isEqualTo(Hours.of(8));
   }
 
   @Test
   void refusesToResetASubmittedTimesheet() {
     // Given
-    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026)).submit(LocalDate.of(2026, 6, 1));
+    var draft = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    draft.submit(LocalDate.of(2026, 6, 1));
+    timesheets.save(draft);
 
     // When / Then
     assertThatThrownBy(() -> prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026)))
@@ -99,6 +103,7 @@ class PreparingTimesheetDraftTest {
     var draft = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
     draft.submit(LocalDate.of(2026, 6, 1));
     draft.reopenForCorrection();
+    timesheets.save(draft);
 
     // When
     var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
@@ -111,22 +116,21 @@ class PreparingTimesheetDraftTest {
   void prefillsAsIfThereWereNoAbsencesWhenTheRegistryCannotBeReached() {
     // Given
     var preparing = new PreparingTimesheetDraft(
-        new TimesheetPrefill(new DutchPublicHolidays()), unreachableRegistry(), assignments, drafts);
+        new TimesheetPrefill(new DutchPublicHolidays()), unreachableRegistry(), assignments, timesheets);
 
     // When
     var draft = preparing.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
     assertThat(draft.day(MONDAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
-    assertThat(draft.registeredAbsencesUnknown()).isTrue();
-    assertThat(drafts.find(JAN, MAY_2026)).containsSame(draft);
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().registeredAbsencesUnknown()).isTrue();
   }
 
   @Test
   void prefillsTheRegisteredAbsencesWhenResetOnceTheRegistryIsReachableAgain() {
     // Given
     new PreparingTimesheetDraft(new TimesheetPrefill(new DutchPublicHolidays()), unreachableRegistry(), assignments,
-        drafts).prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+        timesheets).prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
 
     // When
     var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
@@ -178,5 +182,18 @@ class PreparingTimesheetDraftTest {
 
     // Then
     assertThat(timesheet.day(MONDAY).bookedHours()).isEqualTo(Map.of(AVAILABLE, Hours.of(8)));
+  }
+
+  @Test
+  void resetsTheTimesheetAsChangedConcurrently() {
+    // Given
+    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    timesheets.changeConcurrently(changed -> changed.bookHours(MONDAY.plusDays(1), WORKED, Hours.of(3)));
+
+    // When
+    prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).hours(WORKED)).isEqualTo(Hours.of(8));
   }
 }
