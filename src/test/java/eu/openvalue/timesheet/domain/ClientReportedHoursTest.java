@@ -26,6 +26,18 @@ class ClientReportedHoursTest {
   }
 
   @Test
+  void totalsTheHoursWorkedOnAllDaysItCovers() {
+    // Given
+    var reported = new ClientReportedHours(Map.of(
+        LocalDate.of(2026, 6, 30), Hours.of(8),
+        JULY_1, Hours.ZERO,
+        JULY_2, Hours.of(7, 30)));
+
+    // When / Then
+    assertThat(reported.total()).isEqualTo(Hours.of(15, 30));
+  }
+
+  @Test
   void cannotBeChangedThroughTheHoursItWasGiven() {
     // Given
     var hours = new HashMap<LocalDate, Hours>();

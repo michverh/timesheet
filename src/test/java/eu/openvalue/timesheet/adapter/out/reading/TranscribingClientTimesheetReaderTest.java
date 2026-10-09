@@ -38,7 +38,7 @@ class TranscribingClientTimesheetReaderTest {
       assertThat(image.mediaType()).isEqualTo("image/png");
       assertThat(image.content()).isEqualTo(IMAGE);
     });
-    assertThat(request.schema()).containsEntry("required", List.of("year", "days"));
+    assertThat(request.schema()).containsEntry("required", List.of("year", "days", "totals"));
   }
 
   @Test
@@ -92,6 +92,42 @@ class TranscribingClientTimesheetReaderTest {
 
     // Then
     assertThat(reported.on(LocalDate.of(2027, 1, 1))).contains(Hours.ZERO);
+  }
+
+  @Test
+  void acceptsHoursThatAddUpToOneOfTheTotalsTheTimesheetStates() {
+    // Given: a grand total of all kinds of hours, the total worked and a total of kilometres
+    var reader = answering("""
+        {"year": 2026, "days": [{"d": 3, "m": 8, "h": "8"}, {"d": 4, "m": 8, "h": "7:30"}],
+         "totals": ["23,5", "15:30", "399 km"]}""");
+
+    // When
+    var reported = reader.read(SCREENSHOT);
+
+    // Then
+    assertThat(reported.total()).isEqualTo(Hours.of(15, 30));
+  }
+
+  @Test
+  void acceptsHoursOfATimesheetThatStatesNoTotals() {
+    // Given
+    var reader = answering("""
+        {"year": 2026, "days": [{"d": 3, "m": 8, "h": "8"}], "totals": []}""");
+
+    // When / Then
+    assertThat(reader.read(SCREENSHOT).total()).isEqualTo(Hours.of(8));
+  }
+
+  @Test
+  void reportsHoursThatAddUpToNoneOfTheStatedTotalsAsUnreliable() {
+    // Given: one day misread, so the days no longer add up to the stated 16 hours
+    var reader = answering("""
+        {"year": 2026, "days": [{"d": 3, "m": 8, "h": "8"}, {"d": 4, "m": 8, "h": ""}], "totals": ["16"]}""");
+
+    // When / Then
+    assertThatThrownBy(() -> reader.read(SCREENSHOT))
+        .isInstanceOf(ClientTimesheetUnreadableException.class)
+        .hasMessageContaining("add up to 8:00, which matches none of the totals it states: [16]");
   }
 
   @Test

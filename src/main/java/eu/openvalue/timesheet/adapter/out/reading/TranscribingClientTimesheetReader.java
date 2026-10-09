@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -40,6 +41,8 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
       List every day that has a row or column in the timesheet, in order, including days without hours.
       For each day give its day of the month (d), its month number (m) and the hours worked exactly as written (h).
       Use an empty string for h when no hours worked are written for that day.
+      Also list every total of hours the timesheet states, exactly as written (totals), or none when it states no \
+      totals. Do not add up anything yourself.
       Only take the regular hours worked, not overtime, sickness, leave, public holidays, training, other hours or \
       kilometres.
       When the days only show their day number, take the month and year from where the timesheet states them, for \
@@ -59,8 +62,10 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
                   "m", Map.of("type", "integer", "description", "month number of the day, 1 to 12"),
                   "h", Map.of("type", "string",
                       "description", "the hours worked on the day exactly as written, or empty")),
-              "required", List.of("d", "m", "h")))),
-      "required", List.of("year", "days"));
+              "required", List.of("d", "m", "h"))),
+          "totals", Map.of("type", "array", "items", Map.of("type", "string"),
+              "description", "every total of hours the timesheet states, exactly as written")),
+      "required", List.of("year", "days", "totals"));
 
   private final Transcriber transcriber;
   private final JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -72,11 +77,39 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
   @Override
   public ClientReportedHours read(ClientTimesheetDocument document) {
     var transcription = transcriptionOf(document, transcriber.transcribe(requestFor(document)));
+    var reported = reportedHoursOf(document, transcription);
+    if (!addsUpToAStatedTotal(reported, transcription)) {
+      throw new ClientTimesheetUnreadableException(
+          "The hours read from %s add up to %s, which matches none of the totals it states: %s".formatted(
+              document.fileName(), reported.total(), transcription.totals()));
+    }
+    return reported;
+  }
+
+  private static ClientReportedHours reportedHoursOf(ClientTimesheetDocument document, Transcription transcription) {
     try {
       return reportedHoursOf(transcription);
     } catch (IllegalArgumentException | DateTimeException e) {
       throw new ClientTimesheetUnreadableException(
           "Could not make sense of the transcription of %s: %s".formatted(document.fileName(), transcription), e);
+    }
+  }
+
+  /**
+   * Guards against misread days: when the timesheet states totals, the hours read must add up to one of them. Which
+   * one is left open, because timesheets often state several, such as a grand total of all kinds of hours.
+   */
+  private static boolean addsUpToAStatedTotal(ClientReportedHours reported, Transcription transcription) {
+    var statedTotals = transcription.totals() == null ? List.<String>of() : transcription.totals();
+    var readableTotals = statedTotals.stream().flatMap(total -> hoursIn(total).stream()).toList();
+    return readableTotals.isEmpty() || readableTotals.contains(reported.total());
+  }
+
+  private static Optional<Hours> hoursIn(String total) {
+    try {
+      return Optional.of(Hours.parse(total));
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
     }
   }
 
@@ -138,7 +171,7 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
     return NO_HOURS.contains(text) ? Hours.ZERO : Hours.parse(text);
   }
 
-  record Transcription(Integer year, List<TranscribedDay> days) {
+  record Transcription(Integer year, List<TranscribedDay> days, List<String> totals) {
   }
 
   record TranscribedDay(@JsonProperty("d") int dayOfMonth, @JsonProperty("m") int month,

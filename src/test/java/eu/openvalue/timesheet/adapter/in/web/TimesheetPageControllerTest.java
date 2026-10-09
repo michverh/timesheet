@@ -203,7 +203,7 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText()
-        .contains("<span>acme.pdf</span> could not be read automatically");
+        .contains("The hours could not be read reliably from <span>acme.pdf</span>");
   }
 
   @Test

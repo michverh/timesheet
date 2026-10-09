@@ -71,8 +71,8 @@
   </section>
 
   <section class="banner info" th:if="${page.clientTimesheetUnreadable and !page.submitted}">
-    <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span> could not be read automatically, so
-    compare its hours with yours by hand.
+    The hours could not be read reliably from <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span>,
+    so compare them with yours by hand.
   </section>
 
   <section class="banner info" th:if="${page.submitted}">

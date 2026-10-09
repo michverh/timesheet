@@ -33,6 +33,13 @@ public final class ClientReportedHours {
     return Optional.ofNullable(hoursWorked.get(date));
   }
 
+  /**
+   * The hours worked on all days the client's timesheet covers, including days outside the month.
+   */
+  public Hours total() {
+    return hoursWorked.values().stream().reduce(Hours.ZERO, Hours::plus);
+  }
+
   public boolean isEmpty() {
     return hoursWorked.isEmpty();
   }
