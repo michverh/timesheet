@@ -5,10 +5,12 @@ import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetUnreadableException;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Hours;
 import java.io.IOException;
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +21,24 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Reads client timesheets by having a language model transcribe them: screenshots as images, and Excel workbooks
- * written out as text. The model only transcribes what the timesheet says, in a fixed structure; turning that into
- * dates and hours is done here, whichever model transcribes.
+ * Reads client timesheets by having a language model transcribe them: screenshots as images, PDF documents as images
+ * of their pages, and Excel workbooks written out as text. The model only transcribes what the timesheet says, in a
+ * fixed structure; turning that into dates and hours is done here, whichever model transcribes.
  */
 public final class TranscribingClientTimesheetReader implements ClientTimesheetReader {
 
   private static final Set<String> NO_HOURS = Set.of("", "-", "–");
 
+  /**
+   * Readable for a vision model, yet small enough not to slow it down: higher resolutions read worse, not better.
+   */
+  private static final float PDF_DOTS_PER_INCH = 100;
+
   private static final String IMAGE_INTRODUCTION = """
       This image is a timesheet in which a client registered the hours a consultant worked.""";
+
+  private static final String PAGES_INTRODUCTION = """
+      These images are the pages of a timesheet in which a client registered the hours a consultant worked.""";
 
   private static final String SPREADSHEET_INTRODUCTION = """
       Below the instructions is a spreadsheet in which a client registered the hours a consultant worked, written \
@@ -41,29 +51,32 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
       List every day that has a row or column in the timesheet, in order, including days without hours.
       For each day give its day of the month (d), its month number (m) and the hours worked exactly as written (h).
       Use an empty string for h when no hours worked are written for that day.
-      Also list every total of hours the timesheet states, exactly as written (totals), or none when it states no \
-      totals. Do not add up anything yourself.
-      Only take the regular hours worked, not overtime, sickness, leave, public holidays, training, other hours or \
+      Also list every total of hours the timesheet states, exactly as written (totals): when a row or column of totals
+      holds a total for each kind of hours, list each of those numbers. List none when the timesheet states no totals.
+      Do not add up anything yourself.
+      Only take the regular hours worked, not overtime, sickness, leave, public holidays, training, other hours or
       kilometres.
-      When the days only show their day number, take the month and year from where the timesheet states them, for \
-      example next to "Maand" and "Jaar", or "Month" and "Year".""";
+      When the days only show their day number, take the month and year from where the timesheet states them, for example
+      next to "Maand" and "Jaar", or "Month" and "Year".""";
 
   /**
-   * Short property names keep the answer short, which is what a local model spends most of its time on.
+   * Short property names keep the answer short, which is what a local model spends most of its time on. The
+   * properties are ordered, because models answer in the order of the schema: first the year, then per day the date
+   * before its hours, and the totals last.
    */
-  private static final Map<String, Object> TRANSCRIPTION_SCHEMA = Map.of(
+  private static final Map<String, Object> TRANSCRIPTION_SCHEMA = ordered(
       "type", "object",
-      "properties", Map.of(
-          "year", Map.of("type", "integer", "description", "the year the timesheet concerns"),
-          "days", Map.of("type", "array", "items", Map.of(
+      "properties", ordered(
+          "year", ordered("type", "integer", "description", "the year the timesheet concerns"),
+          "days", ordered("type", "array", "items", ordered(
               "type", "object",
-              "properties", Map.of(
-                  "d", Map.of("type", "integer", "description", "day of the month, 1 to 31"),
-                  "m", Map.of("type", "integer", "description", "month number of the day, 1 to 12"),
-                  "h", Map.of("type", "string",
+              "properties", ordered(
+                  "d", ordered("type", "integer", "description", "day of the month, 1 to 31"),
+                  "m", ordered("type", "integer", "description", "month number of the day, 1 to 12"),
+                  "h", ordered("type", "string",
                       "description", "the hours worked on the day exactly as written, or empty")),
               "required", List.of("d", "m", "h"))),
-          "totals", Map.of("type", "array", "items", Map.of("type", "string"),
+          "totals", ordered("type", "array", "items", ordered("type", "string"),
               "description", "every total of hours the timesheet states, exactly as written")),
       "required", List.of("year", "days", "totals"));
 
@@ -121,9 +134,28 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
       case XLSX -> new TranscriptionRequest(
           SPREADSHEET_INTRODUCTION + "\n" + INSTRUCTIONS + "\n\n" + spreadsheetTranscriptOf(document), List.of(),
           TRANSCRIPTION_SCHEMA);
-      case PDF -> throw new ClientTimesheetUnreadableException(
-          "Reading PDF documents is not supported yet: " + document.fileName());
+      case PDF -> pagesRequestFor(document);
     };
+  }
+
+  private static TranscriptionRequest pagesRequestFor(ClientTimesheetDocument document) {
+    var pages = pdfPagesOf(document).stream()
+        .map(page -> new TranscriptionRequest.Image(DocumentFormat.PNG.mediaType(), page))
+        .toList();
+    var introduction = pages.size() == 1 ? IMAGE_INTRODUCTION : PAGES_INTRODUCTION;
+    return new TranscriptionRequest(introduction + "\n" + INSTRUCTIONS, pages, TRANSCRIPTION_SCHEMA);
+  }
+
+  private static List<byte[]> pdfPagesOf(ClientTimesheetDocument document) {
+    try {
+      var pages = PdfPages.asPngImages(document.content(), PDF_DOTS_PER_INCH);
+      if (pages.isEmpty()) {
+        throw new ClientTimesheetUnreadableException("A PDF document without pages: " + document.fileName());
+      }
+      return pages;
+    } catch (IOException e) {
+      throw new ClientTimesheetUnreadableException("Not a readable PDF document: " + document.fileName(), e);
+    }
   }
 
   private static String spreadsheetTranscriptOf(ClientTimesheetDocument document) {
@@ -169,6 +201,17 @@ public final class TranscribingClientTimesheetReader implements ClientTimesheetR
   private static Hours hoursOf(String written) {
     var text = written == null ? "" : written.strip();
     return NO_HOURS.contains(text) ? Hours.ZERO : Hours.parse(text);
+  }
+
+  /**
+   * A map that keeps its entries in the order given, unlike {@link Map#of}.
+   */
+  private static Map<String, Object> ordered(Object... keysAndValues) {
+    var map = new LinkedHashMap<String, Object>();
+    for (int i = 0; i < keysAndValues.length; i += 2) {
+      map.put((String) keysAndValues[i], keysAndValues[i + 1]);
+    }
+    return Collections.unmodifiableMap(map);
   }
 
   record Transcription(Integer year, List<TranscribedDay> days, List<String> totals) {

@@ -42,6 +42,20 @@ class TranscribingClientTimesheetReaderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void asksForTheDateOfEachDayBeforeItsHoursAndForTheTotalsLast() {
+    // When
+    answering(NO_DAYS).read(SCREENSHOT);
+
+    // Then: models answer in the order of the schema, and read worse when it is shuffled
+    var properties = (Map<String, Object>) requests.getFirst().schema().get("properties");
+    var days = (Map<String, Object>) properties.get("days");
+    var dayProperties = (Map<String, Object>) ((Map<String, Object>) days.get("items")).get("properties");
+    assertThat(properties.keySet()).containsExactly("year", "days", "totals");
+    assertThat(dayProperties.keySet()).containsExactly("d", "m", "h");
+  }
+
+  @Test
   void asksToTranscribeAnExcelWorkbookWrittenOutAsText() throws IOException {
     // Given
     var workbook = new XSSFWorkbook();
@@ -131,11 +145,35 @@ class TranscribingClientTimesheetReaderTest {
   }
 
   @Test
-  void doesNotReadPdfDocumentsYet() {
+  void asksToTranscribeTheOnlyPageOfAPdfDocumentAsAnImage() throws IOException {
+    // When
+    answering(NO_DAYS).read(new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF,
+        PdfPagesTest.pdfWithPages(1)));
+
+    // Then
+    var request = requests.getFirst();
+    assertThat(request.prompt()).startsWith("This image is a timesheet");
+    assertThat(request.images()).singleElement()
+        .satisfies(image -> assertThat(image.mediaType()).isEqualTo("image/png"));
+  }
+
+  @Test
+  void asksToTranscribeThePagesOfALongerPdfDocumentAsImages() throws IOException {
+    // When
+    answering(NO_DAYS).read(new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF,
+        PdfPagesTest.pdfWithPages(2)));
+
+    // Then
+    var request = requests.getFirst();
+    assertThat(request.prompt()).startsWith("These images are the pages of a timesheet");
+    assertThat(request.images()).hasSize(2);
+  }
+
+  @Test
+  void reportsAPdfDocumentThatCannotBeOpened() {
     assertThatThrownBy(() -> answering(NO_DAYS).read(
         new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF, IMAGE)))
-        .isInstanceOf(ClientTimesheetUnreadableException.class)
-        .hasMessageContaining("not supported yet");
+        .isInstanceOf(ClientTimesheetUnreadableException.class);
   }
 
   @Test
