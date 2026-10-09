@@ -9,8 +9,11 @@ import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.draft.InMemoryTimesheetDrafts;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
 import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
+import eu.openvalue.timesheet.adapter.out.reading.ClaudeProperties;
+import eu.openvalue.timesheet.adapter.out.reading.ClaudeTranscriber;
 import eu.openvalue.timesheet.adapter.out.reading.OllamaProperties;
 import eu.openvalue.timesheet.adapter.out.reading.OllamaTranscriber;
+import eu.openvalue.timesheet.adapter.out.reading.Transcriber;
 import eu.openvalue.timesheet.adapter.out.reading.TranscribingClientTimesheetReader;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
@@ -37,6 +40,8 @@ import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.Optional;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,8 +50,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
-    TimesheetMailProperties.class, AbsenceRegistryProperties.class, OllamaProperties.class})
+    TimesheetMailProperties.class, AbsenceRegistryProperties.class, OllamaProperties.class,
+    ClaudeProperties.class})
 class TimesheetConfiguration {
+
+  private static final String TRANSCRIBER = "timesheet.client-timesheet-reader.transcriber";
 
   @Bean
   Clock clock() {
@@ -118,10 +126,25 @@ class TimesheetConfiguration {
     return new CorrectingTimesheet(drafts);
   }
 
+  /**
+   * Reads client timesheets with a local model in Ollama, unless configured to use Claude.
+   */
   @Bean
-  ClientTimesheetReader clientTimesheetReader(OllamaProperties properties) {
-    return new TranscribingClientTimesheetReader(
-        OllamaTranscriber.connectingTo(properties.baseUrl(), properties.model(), properties.timeout()));
+  @ConditionalOnProperty(name = TRANSCRIBER, havingValue = "ollama", matchIfMissing = true)
+  Transcriber ollamaTranscriber(OllamaProperties properties) {
+    return OllamaTranscriber.connectingTo(properties.baseUrl(), properties.model(), properties.timeout());
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = TRANSCRIBER, havingValue = "claude")
+  Transcriber claudeTranscriber(ClaudeProperties properties) {
+    return ClaudeTranscriber.connectingTo(properties.baseUrl(), Optional.ofNullable(properties.apiKey()),
+        properties.model(), properties.timeout());
+  }
+
+  @Bean
+  ClientTimesheetReader clientTimesheetReader(Transcriber transcriber) {
+    return new TranscribingClientTimesheetReader(transcriber);
   }
 
   @Bean

@@ -25,8 +25,13 @@ timesheet:
   # HR's absence registry; locally the WireMock stub from compose.yaml.
   absence-registry:
     base-url: http://localhost:8090
-  # Reads the hours from clients' timesheets; locally a vision model in Ollama.
+  # Reads the hours from clients' timesheets: "ollama" for a local model, "claude" for the Anthropic API.
   client-timesheet-reader:
+    transcriber: ollama
+    claude:
+      model: claude-sonnet-5-5
+      # Left empty, the credentials in the environment are used, such as ANTHROPIC_API_KEY.
+      api-key: ${ANTHROPIC_API_KEY:}
     ollama:
       base-url: http://localhost:11434
       model: qwen3-vl:8b-instruct

@@ -80,5 +80,11 @@ class ArchitectureTest {
       .because("document formats such as spreadsheets and PDF are implementation details of the outbound adapters");
 
   @ArchTest
+  static final ArchRule languageModelClientsStayInOutboundAdapters = noClasses()
+      .that().resideOutsideOfPackage(ADAPTER_OUT)
+      .should().dependOnClassesThat().resideInAnyPackage("com.anthropic..")
+      .because("which language model reads documents is an implementation detail of the outbound adapters");
+
+  @ArchTest
   static final ArchRule noFieldInjection = NO_CLASSES_SHOULD_USE_FIELD_INJECTION.allowEmptyShould(true);
 }

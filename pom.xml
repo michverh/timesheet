@@ -33,6 +33,7 @@
     <htmx.version>2.0.11</htmx.version>
     <poi.version>5.5.1</poi.version>
     <pdfbox.version>3.0.8</pdfbox.version>
+    <anthropic.version>2.70.0</anthropic.version>
     <wiremock.version>3.13.2</wiremock.version>
   </properties>
   <dependencies>
@@ -57,6 +58,11 @@
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
       <version>${pdfbox.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>${anthropic.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
