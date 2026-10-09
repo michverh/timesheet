@@ -25,7 +25,6 @@ import java.util.Optional;
  */
 public final class TimesheetPrefill {
 
-  static final Hours STANDARD_WORKDAY = Hours.of(8);
 
   private final DutchPublicHolidays publicHolidays;
 
@@ -57,16 +56,16 @@ public final class TimesheetPrefill {
 
   private void prefillWeekday(Timesheet timesheet, LocalDate date, List<Absence> absences) {
     if (publicHolidays.isPublicHoliday(date)) {
-      timesheet.bookHours(date, HourCategory.PUBLIC_HOLIDAY, STANDARD_WORKDAY);
+      timesheet.bookHours(date, HourCategory.PUBLIC_HOLIDAY, DayEntry.STANDARD_WORKDAY);
       return;
     }
     absentHoursPerCategory(absences).forEach((category, hours) -> timesheet.bookHours(date, category, hours));
     explanationOf(absences).ifPresent(explanation -> timesheet.explain(date, explanation));
 
     var absentHours = timesheet.day(date).totalHours();
-    if (STANDARD_WORKDAY.isGreaterThan(absentHours)) {
+    if (DayEntry.STANDARD_WORKDAY.isGreaterThan(absentHours)) {
       var regularCategory = timesheet.isOnBench() ? HourCategory.AVAILABLE : HourCategory.WORKED;
-      timesheet.bookHours(date, regularCategory, STANDARD_WORKDAY.minus(absentHours));
+      timesheet.bookHours(date, regularCategory, DayEntry.STANDARD_WORKDAY.minus(absentHours));
     }
   }
 

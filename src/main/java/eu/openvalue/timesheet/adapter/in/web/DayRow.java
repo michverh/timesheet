@@ -19,11 +19,13 @@ import java.util.Optional;
  *
  * @param clientHours the hours worked according to the client's timesheet; empty when it does not cover the day
  * @param differsFromClient whether the hours booked as worked differ from the client's timesheet
+ * @param workdayHours the hours filling the workday, when they add up to more or less than a standard workday;
+ *     otherwise empty
  * @param error why the last input for this day was rejected, or {@code null}
  */
 public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCategory, String> hours,
     String kilometres, String explanation, boolean lacksExplanation, String clientHours, boolean differsFromClient,
-    String error) {
+    String workdayHours, String error) {
 
   private static final DateTimeFormatter LABEL = DateTimeFormatter.ofPattern("EEE d", Locale.ENGLISH);
 
@@ -38,7 +40,8 @@ public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCate
     }
     return new DayRow(day.date(), LABEL.format(day.date()), day.isWeekend(), hours, format(day.kilometres()),
         day.explanation().map(Explanation::text).orElse(""), day.lacksRequiredExplanation(),
-        clientHours.map(HoursFormat::format).orElse(""), differsFromClient, null);
+        clientHours.map(HoursFormat::format).orElse(""), differsFromClient,
+        day.deviatesFromStandardWorkday() ? HoursFormat.format(day.workdayHours()) : "", null);
   }
 
   /**
@@ -48,7 +51,11 @@ public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCate
     var dayOfWeek = date.getDayOfWeek();
     var weekend = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     return new DayRow(date, LABEL.format(date), weekend, input.hours(), input.kilometres(), input.explanation(),
-        false, "", false, error);
+        false, "", false, "", error);
+  }
+
+  public boolean deviatesFromStandardWorkday() {
+    return !workdayHours.isEmpty();
   }
 
   public YearMonth month() {

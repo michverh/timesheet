@@ -290,6 +290,17 @@ fieldset.days:disabled input:hover {
   border-color: var(--error-text);
 }
 
+.timesheet tr.off-workday th {
+  background: var(--warning-bg);
+  box-shadow: inset 3px 0 var(--warning-border);
+}
+
+.timesheet .workday-hours {
+  font-size: 0.8em;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
 .timesheet input.needs-attention {
   border-color: var(--warning-border);
   background: var(--warning-bg);

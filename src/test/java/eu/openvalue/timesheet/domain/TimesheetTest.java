@@ -2,6 +2,7 @@ package eu.openvalue.timesheet.domain;
 
 import static eu.openvalue.timesheet.domain.HourCategory.LEAVE;
 import static eu.openvalue.timesheet.domain.HourCategory.OTHER;
+import static eu.openvalue.timesheet.domain.HourCategory.OVERTIME;
 import static eu.openvalue.timesheet.domain.HourCategory.TRAINING;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -579,5 +580,87 @@ class TimesheetTest {
       Optional<ClientTimesheet> clientTimesheet) {
     return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days, false,
         submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet);
+  }
+
+  @Test
+  void listsTheWeekdaysThatDeviateFromTheStandardWorkday() {
+    // Given
+    var prefilled = new TimesheetPrefill(new DutchPublicHolidays())
+        .prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty(), List.of());
+
+    // When
+    prefilled.bookHours(A_DAY, WORKED, Hours.of(7));
+    prefilled.bookHours(A_DAY.plusDays(1), OVERTIME, Hours.of(2));
+
+    // Then
+    assertThat(prefilled.daysDeviatingFromStandardWorkday()).extracting(DayEntry::date).containsExactly(A_DAY);
+  }
+
+  @Test
+  void takesOverTheHoursWorkedAccordingToTheClient() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    readClientTimesheet(Map.of(A_DAY, Hours.of(7, 30)));
+
+    // When
+    timesheet.takeOverHoursReportedByClient();
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(7, 30));
+    assertThat(timesheet.differencesWithClientTimesheet()).isEmpty();
+  }
+
+  @Test
+  void leavesHoursNoLongerWorkedUnbooked() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    readClientTimesheet(Map.of(A_DAY, Hours.ZERO));
+
+    // When
+    timesheet.takeOverHoursReportedByClient();
+
+    // Then
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEmpty();
+  }
+
+  @Test
+  void leavesDaysWithOtherHoursFillingTheWorkdayToTheProfessional() {
+    // Given
+    timesheet.rebookDay(A_DAY, Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
+    readClientTimesheet(Map.of(A_DAY, Hours.of(8)));
+
+    // When
+    timesheet.takeOverHoursReportedByClient();
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(4));
+    assertThat(timesheet.differencesToTakeOverFromClient()).isEmpty();
+    assertThat(timesheet.differencesWithClientTimesheet()).hasSize(1);
+  }
+
+  @Test
+  void takesOverNothingOutsideTheMonth() {
+    // Given
+    readClientTimesheet(Map.of(LocalDate.of(2028, 3, 1), Hours.of(8)));
+
+    // When / Then
+    assertThat(timesheet.differencesToTakeOverFromClient()).isEmpty();
+  }
+
+  @Test
+  void cannotTakeOverTheClientsHoursOnceSubmitted() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
+    readClientTimesheet(Map.of(A_DAY, Hours.of(7)));
+    timesheet.submit(LocalDate.of(2028, 3, 1));
+
+    // When / Then
+    assertThatThrownBy(timesheet::takeOverHoursReportedByClient)
+        .isInstanceOf(TimesheetAlreadySubmittedException.class);
+  }
+
+  private void readClientTimesheet(Map<LocalDate, Hours> hoursWorked) {
+    timesheet.attachClientTimesheet(clientTimesheet("acme.pdf"));
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(hoursWorked));
   }
 }

@@ -15,6 +15,11 @@ public final class DayEntry {
 
   static final Hours MAXIMUM_DAILY_HOURS = Hours.of(24);
 
+  /**
+   * The hours that fill a weekday.
+   */
+  public static final Hours STANDARD_WORKDAY = Hours.of(8);
+
   private final LocalDate date;
   private final Map<HourCategory, Hours> hours;
   private final Kilometres kilometres;
@@ -66,6 +71,34 @@ public final class DayEntry {
 
   public Hours totalHours() {
     return total(hours);
+  }
+
+  /**
+   * The hours in the categories that fill the workday: all but overtime and stand-by.
+   */
+  public Hours workdayHours() {
+    return hours.entrySet().stream()
+        .filter(booked -> booked.getKey().fillsWorkday())
+        .map(Map.Entry::getValue)
+        .reduce(Hours.ZERO, Hours::plus);
+  }
+
+  /**
+   * Whether this is a weekday on which the hours filling the workday add up to more or less than the standard
+   * workday.
+   */
+  public boolean deviatesFromStandardWorkday() {
+    return !isWeekend() && !workdayHours().equals(STANDARD_WORKDAY);
+  }
+
+  /**
+   * Whether the hours worked can be replaced by others without guessing at the rest of the day: no hours are booked
+   * in the other categories filling the workday, and the day would not exceed 24 hours.
+   */
+  boolean canTakeOverHoursWorked(Hours worked) {
+    var others = hours.keySet().stream()
+        .anyMatch(category -> category != HourCategory.WORKED && category.fillsWorkday());
+    return !others && !totalHours().minus(hours(HourCategory.WORKED)).plus(worked).isGreaterThan(MAXIMUM_DAILY_HOURS);
   }
 
   public Kilometres kilometres() {

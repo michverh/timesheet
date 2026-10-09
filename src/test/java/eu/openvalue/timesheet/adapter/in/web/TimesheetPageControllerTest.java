@@ -3,6 +3,9 @@ package eu.openvalue.timesheet.adapter.in.web;
 import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.JAN;
 import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.MAY_2026;
 import static eu.openvalue.timesheet.adapter.in.web.WebTestConfiguration.draft;
+import static eu.openvalue.timesheet.domain.HourCategory.LEAVE;
+import static eu.openvalue.timesheet.domain.HourCategory.OVERTIME;
+import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -243,6 +246,60 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText().contains("(29 December 2025 – 4 January 2026)");
+  }
+
+  @Test
+  void offersToTakeOverTheClientsHoursOnDaysWithOnlyHoursWorked() {
+    // Given
+    var draft = draft();
+    draft.rebookDay(LocalDate.of(2026, 5, 6), Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2026, 5, 4), Hours.of(7),
+        LocalDate.of(2026, 5, 5), Hours.of(7, 30),
+        LocalDate.of(2026, 5, 6), Hours.of(8))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("hx-post=\"/timesheets/2026-05/client-hours\"", "Use the client&#39;s hours for 2 days",
+            "Days with leave, sickness or other hours besides worked are left for you to check.");
+  }
+
+  @Test
+  void offersNoTakingOverWhenTheHoursWorkedMatchTheClients() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(LocalDate.of(2026, 5, 4), Hours.of(8))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText().doesNotContain("/client-hours");
+  }
+
+  @Test
+  void pointsOutWeekdaysThatDoNotAddUpToAStandardWorkday() {
+    // Given
+    var draft = draft();
+    draft.rebookDay(LocalDate.of(2026, 5, 4), Map.of(WORKED, Hours.of(7, 30), OVERTIME, Hours.of(1)));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("These weekdays do not add up to 8 hours", "Monday 4 May: 7:30 instead of 8")
+        .containsPattern("id=\"day-2026-05-04\"[^>]*class=\"off-workday \"")
+        .containsPattern("title=\"Adds up to 7:30 instead of 8 hours\">7:30</span>")
+        .doesNotContainPattern("id=\"day-2026-05-05\"[^>]*class=\"off-workday");
   }
 
   @Test

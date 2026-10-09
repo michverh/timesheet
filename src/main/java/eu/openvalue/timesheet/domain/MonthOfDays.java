@@ -82,6 +82,13 @@ final class MonthOfDays {
   }
 
   /**
+   * The weekdays on which the hours filling the workday add up to more or less than the standard workday.
+   */
+  List<DayEntry> daysDeviatingFromStandardWorkday() {
+    return days.values().stream().filter(DayEntry::deviatesFromStandardWorkday).toList();
+  }
+
+  /**
    * The days with hours in a category that asks for an explanation, but without one.
    */
   List<LocalDate> daysLackingRequiredExplanation() {

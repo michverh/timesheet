@@ -5,6 +5,7 @@ import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
 import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.DayEntry;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.HoursDifference;
 import eu.openvalue.timesheet.domain.Project;
@@ -27,7 +28,8 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
     boolean registeredAbsencesUnknown, Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet,
     boolean clientTimesheetUnreadable, List<String> differencesWithClient, Optional<String> clientTimesheetPeriod,
-    boolean clientTimesheetOfAnotherPeriod) {
+    boolean clientTimesheetOfAnotherPeriod, List<String> daysDeviatingFromStandardWorkday,
+    int daysToTakeOverFromClient) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
@@ -60,7 +62,9 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.clientTimesheet().filter(ClientTimesheet::isUnreadable).isPresent(),
         timesheet.differencesWithClientTimesheet().stream().map(TimesheetPage::describe).toList(),
         hoursReportedByClient(timesheet).flatMap(TimesheetPage::periodOf),
-        timesheet.isClientTimesheetOfAnotherPeriod());
+        timesheet.isClientTimesheetOfAnotherPeriod(),
+        timesheet.daysDeviatingFromStandardWorkday().stream().map(TimesheetPage::describe).toList(),
+        timesheet.differencesToTakeOverFromClient().size());
   }
 
   private static List<DayRow> rowsOf(Timesheet timesheet) {
@@ -92,6 +96,11 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         : first.getMonth() != last.getMonth() ? DAY_AND_MONTH_LABEL
         : DAY_LABEL_ONLY;
     return firstLabel.format(first) + " – " + DATE_LABEL.format(last);
+  }
+
+  private static String describe(DayEntry day) {
+    return "%s: %s instead of %s".formatted(DAY_LABEL.format(day.date()), HoursFormat.format(day.workdayHours()),
+        HoursFormat.format(DayEntry.STANDARD_WORKDAY));
   }
 
   private static String describe(HoursDifference difference) {

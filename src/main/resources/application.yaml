@@ -6,6 +6,14 @@ spring:
       start:
         # Also start services added to compose.yaml when others are already running.
         skip: never
+  web:
+    resources:
+      chain:
+        strategy:
+          content:
+            # Puts a hash of the content in the URL of stylesheets, so browsers never use an outdated copy.
+            enabled: true
+            paths: /css/**
   servlet:
     multipart:
       # The client's own timesheet can be at most 10 MB.

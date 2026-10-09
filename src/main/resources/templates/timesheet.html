@@ -49,6 +49,15 @@
     </ul>
   </section>
 
+  <section th:fragment="workday-deviations" id="workday-deviations" class="banner warning" aria-live="polite"
+           th:hx-swap-oob="${oob} ? 'true'"
+           th:hidden="${page.daysDeviatingFromStandardWorkday.isEmpty() or page.submitted}">
+    <p>These weekdays do not add up to 8 hours, not counting overtime and stand-by:</p>
+    <ul>
+      <li th:each="day : ${page.daysDeviatingFromStandardWorkday}" th:text="${day}">Monday 4 May: 7:30 instead of 8</li>
+    </ul>
+  </section>
+
   <section class="banner warning" th:if="${page.registeredAbsencesUnknown and !page.submitted}">
     HR's absence registry could not be reached when this month was prefilled, so no leave or sickness has been filled
     in. Check those days yourself, or reset to the prefilled hours to try the registry again.
@@ -68,6 +77,17 @@
         Monday 3 August: 8 worked, 7:30 according to the client
       </li>
     </ul>
+    <p th:if="${page.daysToTakeOverFromClient > 0}">
+      <button type="button"
+              th:hx-post="@{/timesheets/{month}/client-hours(month=${page.month})}"
+              th:text="${page.daysToTakeOverFromClient == 1 ? 'Use the client''s hours for 1 day'
+                  : 'Use the client''s hours for ' + page.daysToTakeOverFromClient + ' days'}">
+        Use the client's hours for 2 days
+      </button>
+      <span class="muted" th:if="${page.daysToTakeOverFromClient < page.differencesWithClient.size()}">
+        Days with leave, sickness or other hours besides worked are left for you to check.
+      </span>
+    </p>
   </section>
 
   <section class="banner warning" th:if="${page.clientTimesheetOfAnotherPeriod and !page.submitted}">

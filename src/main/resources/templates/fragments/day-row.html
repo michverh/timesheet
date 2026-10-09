@@ -4,10 +4,16 @@
 <table>
   <tr th:fragment="day-row"
       th:id="|day-${row.date}|"
-      th:classappend="${(row.weekend ? 'weekend ' : '') + (row.error != null ? 'rejected' : '')}"
+      th:classappend="${(row.weekend ? 'weekend ' : '') + (row.deviatesFromStandardWorkday ? 'off-workday ' : '')
+          + (row.error != null ? 'rejected' : '')}"
       th:hx-post="@{/timesheets/{month}/days/{date}(month=${row.month},date=${row.date})}"
       hx-trigger="change" hx-include="this" hx-target="this" hx-swap="outerHTML">
-    <th scope="row" th:text="${row.label}">Mon 4</th>
+    <th scope="row">
+      <span th:text="${row.label}">Mon 4</span>
+      <span class="workday-hours" th:if="${row.deviatesFromStandardWorkday}"
+            th:title="|Adds up to ${row.workdayHours} instead of 8 hours|"
+            th:text="${row.workdayHours}">7:30</span>
+    </th>
     <td class="client-hours" th:classappend="${row.differsFromClient} ? 'differs'" th:text="${row.clientHours}">8</td>
     <td th:each="category : ${categories}">
       <input type="text" class="hours" autocomplete="off"
