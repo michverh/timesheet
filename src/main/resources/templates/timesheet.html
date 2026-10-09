@@ -58,11 +58,6 @@
     </ul>
   </section>
 
-  <section class="banner warning" th:if="${page.registeredAbsencesUnknown and !page.submitted}">
-    HR's absence registry could not be reached when this month was prefilled, so no leave or sickness has been filled
-    in. Check those days yourself, or reset to the prefilled hours to try the registry again.
-  </section>
-
   <section class="banner warning" th:if="${page.lacksClientTimesheet and !page.submitted}">
     The timesheet <span th:text="${page.client}">ACME</span> keeps of your hours has not been uploaded yet. You can
     submit without it, but HR usually wants it alongside.
@@ -113,7 +108,7 @@
     <th:block th:unless="${page.submitted}">
       <button type="button" class="secondary"
               th:hx-post="@{/timesheets/{month}/reset(month=${page.month})}"
-              hx-confirm="Discard all changes to this month and prefill it again from the standard work week, public holidays and registered absences?">
+              hx-confirm="Discard all changes to this month and prefill it again from the standard work week and public holidays?">
         Reset to prefilled hours
       </button>
       <button type="button" class="primary"

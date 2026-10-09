@@ -362,19 +362,6 @@ class TimesheetTest {
   }
 
   @Test
-  void knowsTheRegisteredAbsencesAgainOnceRestartedFromATimesheetThatDoes() {
-    // Given
-    var prefill = new TimesheetPrefill(new DutchPublicHolidays());
-    var draft = prefill.prefillWithoutRegisteredAbsences(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
-
-    // When
-    draft.restartFrom(prefill.prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty(), List.of()));
-
-    // Then
-    assertThat(draft.registeredAbsencesUnknown()).isFalse();
-  }
-
-  @Test
   void holdsTheClientsTimesheet() {
     // Given
     var document = clientTimesheet("acme-february.pdf");
@@ -537,7 +524,7 @@ class TimesheetTest {
 
   private static Timesheet restore(List<DayEntry> days, Optional<LocalDate> submittedOn,
       Optional<ClientTimesheet> clientTimesheet) {
-    return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days, false,
+    return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days,
         submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet);
   }
 
@@ -545,7 +532,7 @@ class TimesheetTest {
   void listsTheWeekdaysThatDeviateFromTheStandardWorkday() {
     // Given
     var prefilled = new TimesheetPrefill(new DutchPublicHolidays())
-        .prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty(), List.of());
+        .prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
 
     // When
     prefilled.bookHours(A_DAY, WORKED, Hours.of(7));

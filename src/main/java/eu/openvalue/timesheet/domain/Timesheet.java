@@ -19,7 +19,6 @@ public final class Timesheet {
   private Assignment assignment;
   private MonthOfDays days;
   private SubmissionState submission = Draft.NEW;
-  private boolean registeredAbsencesUnknown;
   private ClientTimesheet clientTimesheet;
 
   private Timesheet(YearMonth month, Professional professional, Assignment assignment) {
@@ -50,13 +49,12 @@ public final class Timesheet {
    * @throws IllegalArgumentException when the state is not one a timesheet can be in
    */
   public static Timesheet restore(YearMonth month, Professional professional, Optional<Assignment> assignment,
-      List<DayEntry> days, boolean registeredAbsencesUnknown, Optional<LocalDate> submittedOn,
-      Optional<LocalDate> previouslySubmittedOn, Optional<ClientTimesheet> clientTimesheet) {
+      List<DayEntry> days, Optional<LocalDate> submittedOn, Optional<LocalDate> previouslySubmittedOn,
+      Optional<ClientTimesheet> clientTimesheet) {
     Objects.requireNonNull(days, "days");
     Objects.requireNonNull(clientTimesheet, "clientTimesheet");
     var timesheet = start(month, professional, assignment);
     timesheet.days = MonthOfDays.of(month, days);
-    timesheet.registeredAbsencesUnknown = registeredAbsencesUnknown;
     timesheet.submission = SubmissionState.of(submittedOn, previouslySubmittedOn);
     timesheet.clientTimesheet = clientTimesheet.orElse(null);
     return timesheet;
@@ -206,19 +204,6 @@ public final class Timesheet {
     }
     assignment = prepared.assignment;
     days = prepared.days;
-    registeredAbsencesUnknown = prepared.registeredAbsencesUnknown;
-  }
-
-  /**
-   * Whether the timesheet was prefilled without knowing the absences HR registered, so leave and sickness may be
-   * missing.
-   */
-  public boolean registeredAbsencesUnknown() {
-    return registeredAbsencesUnknown;
-  }
-
-  void markRegisteredAbsencesUnknown() {
-    registeredAbsencesUnknown = true;
   }
 
   /**

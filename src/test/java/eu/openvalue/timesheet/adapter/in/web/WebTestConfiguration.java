@@ -11,7 +11,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Optional;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +29,7 @@ class WebTestConfiguration {
    */
   static Timesheet draft() {
     return new TimesheetPrefill(new DutchPublicHolidays())
-        .prefill(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME"), new Project("Platform"))), List.of());
+        .prefill(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME"), new Project("Platform"))));
   }
 
   @Bean

@@ -49,9 +49,6 @@ class TimesheetEntity {
 
   private String projectName;
 
-  @Column(nullable = false)
-  private boolean registeredAbsencesUnknown;
-
   private LocalDate submittedOn;
 
   private LocalDate previouslySubmittedOn;
@@ -87,7 +84,6 @@ class TimesheetEntity {
     version++;
     clientName = timesheet.assignment().map(Assignment::client).map(Client::name).orElse(null);
     projectName = timesheet.assignment().flatMap(Assignment::project).map(Project::name).orElse(null);
-    registeredAbsencesUnknown = timesheet.registeredAbsencesUnknown();
     submittedOn = timesheet.submittedOn().orElse(null);
     previouslySubmittedOn = timesheet.previouslySubmittedOn().orElse(null);
     copyDays(timesheet);
@@ -96,7 +92,7 @@ class TimesheetEntity {
 
   Timesheet restore() {
     return Timesheet.restore(YearMonth.from(month), Professional.withEmail(professionalEmail), assignment(),
-        days.stream().map(TimesheetDayEntity::restore).toList(), registeredAbsencesUnknown,
+        days.stream().map(TimesheetDayEntity::restore).toList(),
         Optional.ofNullable(submittedOn), Optional.ofNullable(previouslySubmittedOn),
         Optional.ofNullable(clientTimesheet).map(ClientTimesheetEntity::restore));
   }

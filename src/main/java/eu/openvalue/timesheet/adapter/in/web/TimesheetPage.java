@@ -24,7 +24,7 @@ import java.util.Optional;
 public record TimesheetPage(String professionalName, String professionalEmail, YearMonth month, String monthLabel,
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
-    boolean registeredAbsencesUnknown, Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet,
+    Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet,
     boolean clientTimesheetUnreadable, Optional<String> clientTimesheetPeriod,
     boolean clientTimesheetOfAnotherPeriod, List<String> daysDeviatingFromStandardWorkday) {
 
@@ -53,7 +53,6 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.daysLackingRequiredExplanation().stream().map(DAY_LABEL::format).toList(),
         timesheet.submittedOn().map(DATE_LABEL::format),
         timesheet.previouslySubmittedOn().map(DATE_LABEL::format),
-        timesheet.registeredAbsencesUnknown(),
         timesheet.clientTimesheet().map(ClientTimesheet::document).map(ClientTimesheetDocument::fileName),
         timesheet.lacksClientTimesheet(),
         timesheet.clientTimesheet().filter(ClientTimesheet::isUnreadable).isPresent(),
@@ -92,7 +91,6 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     return "%s: %s instead of %s".formatted(DAY_LABEL.format(day.date()), HoursFormat.format(day.workdayHours()),
         HoursFormat.format(DayEntry.STANDARD_WORKDAY));
   }
-
 
   Optional<DayRow> day(LocalDate date) {
     return days.stream().filter(row -> row.date().equals(date)).findFirst();

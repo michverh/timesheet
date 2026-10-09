@@ -6,8 +6,7 @@ public interface PrepareTimesheetDraftUseCase {
 
   /**
    * Gives the draft timesheet of a professional for a month. When there is none yet, it is prepared first: prefilled
-   * from the standard work week, the public holidays, the registered absences and the professional's assignment.
-   * When the registered absences cannot be retrieved, it is prefilled as if there were none, and marked as such.
+   * from the standard work week, the public holidays and the professional's assignment.
    */
   Timesheet prepareDraft(PrepareTimesheetDraftCommand command);
 }

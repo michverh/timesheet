@@ -39,9 +39,6 @@ server:
     max-swallow-size: 20MB
 
 timesheet:
-  # HR's absence registry; locally the WireMock stub from compose.yaml.
-  absence-registry:
-    base-url: http://localhost:8090
   # Reads the hours from clients' timesheets: "ollama" for a local model, "claude" for the Anthropic API.
   client-timesheet-reader:
     transcriber: ollama

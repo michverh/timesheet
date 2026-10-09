@@ -146,19 +146,6 @@ class JpaTimesheetsTest {
   }
 
   @Test
-  void keepsThatTheRegisteredAbsencesWereUnknown() {
-    // Given
-    var timesheet = Timesheet.restore(MAY_2026, JAN, Optional.of(ACME), draft().days(), true, Optional.empty(),
-        Optional.empty(), Optional.empty());
-
-    // When
-    timesheets.save(timesheet);
-
-    // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().registeredAbsencesUnknown()).isTrue();
-  }
-
-  @Test
   void keepsASubmissionAndTheOneItCorrects() {
     // Given
     var timesheet = draft();

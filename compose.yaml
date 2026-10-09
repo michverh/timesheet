@@ -16,13 +16,6 @@ services:
     ports:
       - "1025:1025" # SMTP
       - "8025:8025" # web interface: http://localhost:8025
-  absence-registry:
-    # Stands in for HR's absence registry; the stubbed absences are in wiremock/mappings.
-    image: wiremock/wiremock:3.13.2
-    ports:
-      - "8090:8080"
-    volumes:
-      - ./wiremock:/home/wiremock
   ollama:
     # Stands in for Ollama with readings recorded from the real model; see wiremock/ollama/README.md.
     image: wiremock/wiremock:3.13.2

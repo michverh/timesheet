@@ -2,8 +2,6 @@ package eu.openvalue.timesheet.configuration;
 
 import eu.openvalue.timesheet.adapter.in.web.CurrentProfessional;
 import eu.openvalue.timesheet.adapter.in.web.CurrentProfessionalProperties;
-import eu.openvalue.timesheet.adapter.out.absence.AbsenceRegistryProperties;
-import eu.openvalue.timesheet.adapter.out.absence.HttpAbsenceRegistry;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
@@ -31,7 +29,6 @@ import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
-import eu.openvalue.timesheet.application.port.out.AbsenceRegistry;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
@@ -51,7 +48,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
-    TimesheetMailProperties.class, AbsenceRegistryProperties.class, OllamaProperties.class,
+    TimesheetMailProperties.class, OllamaProperties.class,
     ClaudeProperties.class})
 class TimesheetConfiguration {
 
@@ -78,11 +75,6 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  AbsenceRegistry absenceRegistry(AbsenceRegistryProperties properties) {
-    return HttpAbsenceRegistry.connectingTo(properties.baseUrl(), properties.timeout());
-  }
-
-  @Bean
   Timesheets timesheets(TimesheetEntityRepository repository) {
     return new JpaTimesheets(repository);
   }
@@ -91,9 +83,9 @@ class TimesheetConfiguration {
    * Serves both as {@link PrepareTimesheetDraftUseCase} and as {@link ResetTimesheetDraftUseCase}.
    */
   @Bean
-  PreparingTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill,
-      AbsenceRegistry absenceRegistry, Assignments assignments, Timesheets timesheets) {
-    return new PreparingTimesheetDraft(prefill, absenceRegistry, assignments, timesheets);
+  PreparingTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill, Assignments assignments,
+      Timesheets timesheets) {
+    return new PreparingTimesheetDraft(prefill, assignments, timesheets);
   }
 
   @Bean
