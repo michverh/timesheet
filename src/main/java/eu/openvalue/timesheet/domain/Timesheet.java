@@ -164,6 +164,15 @@ public final class Timesheet {
   }
 
   /**
+   * Whether the client's timesheet was read, but concerns another period: it covers none of the days of the month.
+   */
+  public boolean isClientTimesheetOfAnotherPeriod() {
+    return hoursReportedByClient()
+        .filter(reported -> !reported.isEmpty() && !reported.coversAnyDayOf(month))
+        .isPresent();
+  }
+
+  /**
    * The days on which the hours booked as worked differ from the client's timesheet; none when it has not been read.
    */
   public List<HoursDifference> differencesWithClientTimesheet() {

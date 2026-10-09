@@ -508,6 +508,43 @@ class TimesheetTest {
         .isInstanceOf(IllegalStateException.class);
   }
 
+  @Test
+  void recognisesAClientsTimesheetOfAnotherPeriod() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("acme-august.pdf"));
+
+    // When
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(LocalDate.of(2027, 8, 3), Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isTrue();
+  }
+
+  @Test
+  void recognisesAClientsTimesheetOfThisMonth() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("acme-week.pdf"));
+
+    // When
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2028, 1, 31), Hours.of(8), LocalDate.of(2028, 2, 1), Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isFalse();
+  }
+
+  @Test
+  void doesNotTakeAClientsTimesheetWithoutDaysForOneOfAnotherPeriod() {
+    // Given
+    timesheet.attachClientTimesheet(clientTimesheet("empty.pdf"));
+
+    // When
+    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of()));
+
+    // Then
+    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isFalse();
+  }
+
   private static ClientTimesheetDocument clientTimesheet(String fileName) {
     return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, new byte[] {1, 2, 3});
   }

@@ -191,6 +191,61 @@ class TimesheetPageControllerTest {
   }
 
   @Test
+  void showsThePeriodTheClientsTimesheetCovers() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2026, 5, 4), Hours.of(8),
+        LocalDate.of(2026, 5, 10), Hours.ZERO)));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("(4 – 10 May 2026)")
+        .doesNotContain("Did you upload the client's timesheet for the right month?");
+  }
+
+  @Test
+  void warnsWhenTheClientsTimesheetCoversAnotherPeriod() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-27.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2026, 6, 29), Hours.of(8),
+        LocalDate.of(2026, 7, 5), Hours.ZERO)));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("<span>week-27.png</span> covers", "<span>29 June – 5 July 2026</span>, which is not part of",
+            "Did you upload the client's timesheet for the right month?");
+  }
+
+  @Test
+  void namesBothYearsOfAPeriodAcrossTheTurnOfTheYear() {
+    // Given
+    var draft = draft();
+    draft.attachClientTimesheet(new ClientTimesheetDocument("week-1.png", DocumentFormat.PNG, new byte[] {1}));
+    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
+        LocalDate.of(2025, 12, 29), Hours.of(8),
+        LocalDate.of(2026, 1, 4), Hours.ZERO)));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText().contains("(29 December 2025 – 4 January 2026)");
+  }
+
+  @Test
   void asksToCompareByHandWhenTheClientsTimesheetCouldNotBeRead() {
     // Given
     var draft = draft();

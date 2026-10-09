@@ -2,6 +2,7 @@ package eu.openvalue.timesheet.adapter.in.web;
 
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
+import eu.openvalue.timesheet.domain.ClientReportedHours;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.HoursDifference;
@@ -24,11 +25,14 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     String client, String project, List<DayRow> days, Map<HourCategory, String> totalHours, String totalKilometres,
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
     boolean registeredAbsencesUnknown, Optional<String> clientTimesheetFileName, boolean lacksClientTimesheet,
-    boolean clientTimesheetUnreadable, List<String> differencesWithClient) {
+    boolean clientTimesheetUnreadable, List<String> differencesWithClient, Optional<String> clientTimesheetPeriod,
+    boolean clientTimesheetOfAnotherPeriod) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
   private static final DateTimeFormatter DATE_LABEL = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
+  private static final DateTimeFormatter DAY_AND_MONTH_LABEL = DateTimeFormatter.ofPattern("d MMMM", Locale.ENGLISH);
+  private static final DateTimeFormatter DAY_LABEL_ONLY = DateTimeFormatter.ofPattern("d", Locale.ENGLISH);
 
   static TimesheetPage of(Timesheet timesheet) {
     var assignment = timesheet.assignment();
@@ -53,7 +57,9 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.clientTimesheet().map(ClientTimesheetDocument::fileName),
         timesheet.lacksClientTimesheet(),
         timesheet.isClientTimesheetUnreadable(),
-        timesheet.differencesWithClientTimesheet().stream().map(TimesheetPage::describe).toList());
+        timesheet.differencesWithClientTimesheet().stream().map(TimesheetPage::describe).toList(),
+        timesheet.hoursReportedByClient().flatMap(TimesheetPage::periodOf),
+        timesheet.isClientTimesheetOfAnotherPeriod());
   }
 
   private static List<DayRow> rowsOf(Timesheet timesheet) {
@@ -63,6 +69,24 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     return timesheet.days().stream()
         .map(day -> DayRow.of(day, reported.flatMap(hours -> hours.on(day.date())), differing.contains(day.date())))
         .toList();
+  }
+
+  /**
+   * The days a client's timesheet covers, as compactly as reads naturally: "1 – 31 August 2026", "29 June – 5 July
+   * 2026" or "29 December 2026 – 4 January 2027".
+   */
+  private static Optional<String> periodOf(ClientReportedHours reported) {
+    return reported.firstDay().flatMap(first -> reported.lastDay().map(last -> periodBetween(first, last)));
+  }
+
+  private static String periodBetween(LocalDate first, LocalDate last) {
+    if (first.equals(last)) {
+      return DATE_LABEL.format(first);
+    }
+    var firstLabel = first.getYear() != last.getYear() ? DATE_LABEL
+        : first.getMonth() != last.getMonth() ? DAY_AND_MONTH_LABEL
+        : DAY_LABEL_ONLY;
+    return firstLabel.format(first) + " – " + DATE_LABEL.format(last);
   }
 
   private static String describe(HoursDifference difference) {

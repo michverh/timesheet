@@ -1,6 +1,7 @@
 package eu.openvalue.timesheet.domain;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,24 @@ public final class ClientReportedHours {
    */
   public Hours total() {
     return hoursWorked.values().stream().reduce(Hours.ZERO, Hours::plus);
+  }
+
+  /**
+   * The first day the client's timesheet covers, or empty when it covers no days.
+   */
+  public Optional<LocalDate> firstDay() {
+    return hoursWorked.isEmpty() ? Optional.empty() : Optional.of(hoursWorked.firstKey());
+  }
+
+  /**
+   * The last day the client's timesheet covers, or empty when it covers no days.
+   */
+  public Optional<LocalDate> lastDay() {
+    return hoursWorked.isEmpty() ? Optional.empty() : Optional.of(hoursWorked.lastKey());
+  }
+
+  public boolean coversAnyDayOf(YearMonth month) {
+    return hoursWorked.keySet().stream().anyMatch(date -> YearMonth.from(date).equals(month));
   }
 
   public boolean isEmpty() {

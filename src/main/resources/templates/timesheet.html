@@ -70,6 +70,12 @@
     </ul>
   </section>
 
+  <section class="banner warning" th:if="${page.clientTimesheetOfAnotherPeriod and !page.submitted}">
+    <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span> covers
+    <span th:text="${page.clientTimesheetPeriod.orElse('')}">1 – 31 August 2026</span>, which is not part of
+    <span th:text="${page.monthLabel}">October 2026</span>. Did you upload the client's timesheet for the right month?
+  </section>
+
   <section class="banner info" th:if="${page.clientTimesheetUnreadable and !page.submitted}">
     The hours could not be read reliably from <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span>,
     so compare them with yours by hand.
@@ -91,6 +97,8 @@
     <span class="label">Client timesheet</span>
     <span th:if="${page.clientTimesheetFileName.isPresent()}">
       <strong th:text="${page.clientTimesheetFileName.get()}">acme-may.pdf</strong>
+      <span class="muted" th:if="${page.clientTimesheetPeriod.isPresent()}"
+            th:text="|(${page.clientTimesheetPeriod.get()})|">(1 – 31 May 2026)</span>
     </span>
     <span class="muted" th:if="${page.clientTimesheetFileName.isEmpty()}">not uploaded</span>
     <th:block th:unless="${page.submitted}">

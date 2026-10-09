@@ -89,4 +89,37 @@ class ClientReportedHoursTest {
     // When / Then
     assertThat(reported.differencesWith(days)).isEmpty();
   }
+
+  @Test
+  void startsOnTheFirstDayItCovers() {
+    var reported = new ClientReportedHours(Map.of(JULY_3, Hours.of(8), JULY_1, Hours.of(8), JULY_2, Hours.ZERO));
+
+    assertThat(reported.firstDay()).contains(JULY_1);
+  }
+
+  @Test
+  void endsOnTheLastDayItCovers() {
+    var reported = new ClientReportedHours(Map.of(JULY_3, Hours.of(8), JULY_1, Hours.of(8), JULY_2, Hours.ZERO));
+
+    assertThat(reported.lastDay()).contains(JULY_3);
+  }
+
+  @Test
+  void coversNoPeriodWhenItCoversNoDays() {
+    assertThat(new ClientReportedHours(Map.of()).firstDay()).isEmpty();
+  }
+
+  @Test
+  void coversAMonthWhenItCoversAtLeastOneOfItsDays() {
+    var reported = new ClientReportedHours(Map.of(LocalDate.of(2026, 6, 30), Hours.of(8), JULY_1, Hours.of(8)));
+
+    assertThat(reported.coversAnyDayOf(YearMonth.of(2026, 7))).isTrue();
+  }
+
+  @Test
+  void doesNotCoverAMonthWhenItCoversNoneOfItsDays() {
+    var reported = new ClientReportedHours(Map.of(JULY_1, Hours.of(8)));
+
+    assertThat(reported.coversAnyDayOf(YearMonth.of(2026, 10))).isFalse();
+  }
 }
