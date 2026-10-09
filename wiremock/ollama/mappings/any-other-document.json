@@ -1,0 +1,20 @@
+{
+  "name": "Any other document",
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "url": "/api/generate"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "jsonBody": {
+      "error": "The Ollama stub holds no recorded reading for this document; see wiremock/ollama/README.md"
+    }
+  },
+  "metadata": {
+    "description": "Answers like Ollama does for a model it cannot serve, so the document ends up as unreadable."
+  }
+}

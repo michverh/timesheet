@@ -1,0 +1,31 @@
+{
+  "name": "Week 27 screenshot",
+  "request": {
+    "method": "POST",
+    "url": "/api/generate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.images[0]",
+          "contains": "yjOCr2f+tExHgDTii77gviShzWh2Ygk/78h/UIwJG4n4osiiI8G9ubXNRj6LWEZUZv4xjvw8jrdXXXywXB1TiS/sQ1vBvbm1zWo+//h3Cpuk7Z3DuIkLLffC"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "jsonBody": {
+      "model": "qwen3-vl:8b-instruct",
+      "created_at": "2026-10-09T12:49:30.0744705Z",
+      "response": "{\n  \"year\": 2026,\n  \"days\": [\n    {\n      \"d\": 29,\n      \"m\": 6,\n      \"h\": \"08:00\"\n    },\n    {\n      \"d\": 30,\n      \"m\": 6,\n      \"h\": \"08:00\"\n    },\n    {\n      \"d\": 1,\n      \"m\": 7,\n      \"h\": \"-\"\n    },\n    {\n      \"d\": 2,\n      \"m\": 7,\n      \"h\": \"08:00\"\n    },\n    {\n      \"d\": 3,\n      \"m\": 7,\n      \"h\": \"08:00\"\n    },\n    {\n      \"d\": 4,\n      \"m\": 7,\n      \"h\": \"-\"\n    },\n    {\n      \"d\": 5,\n      \"m\": 7,\n      \"h\": \"-\"\n    }\n  ],\n  \"totals\": [\n    \"32:00\"\n  ]\n}",
+      "done": true,
+      "done_reason": "stop"
+    }
+  },
+  "metadata": {
+    "description": "What qwen3-vl:8b-instruct read from examples/week-27-2026.png: 8 hours on 29 and 30 June and 2 and 3 July 2026."
+  }
+}

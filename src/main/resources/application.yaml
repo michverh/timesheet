@@ -44,7 +44,9 @@ timesheet:
       # Left empty, the credentials in the environment are used, such as ANTHROPIC_API_KEY.
       api-key: ${ANTHROPIC_API_KEY:}
     ollama:
-      base-url: http://localhost:11434
+      # Locally the stub from compose.yaml, which answers instantly for the examples in wiremock/ollama/examples;
+      # http://localhost:11434 reads any document with the model in Ollama itself.
+      base-url: http://localhost:11435
       model: qwen3-vl:8b-instruct
   # The professional using the application, until users log in.
   professional:

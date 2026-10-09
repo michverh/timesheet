@@ -23,6 +23,13 @@ services:
       - "8090:8080"
     volumes:
       - ./wiremock:/home/wiremock
+  ollama:
+    # Stands in for Ollama with readings recorded from the real model; see wiremock/ollama/README.md.
+    image: wiremock/wiremock:3.13.2
+    ports:
+      - "11435:8080"
+    volumes:
+      - ./wiremock/ollama:/home/wiremock
 
 volumes:
   postgres-data:
