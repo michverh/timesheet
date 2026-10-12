@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The client's own timesheet, handed in alongside a timesheet, and what could be read from it: not read yet, read,
+ * The client's own timesheet, imported into a timesheet, and what could be read from it: not read yet, read,
  * or unreadable, so it has to be compared by hand.
  */
 public final class ClientTimesheet {
@@ -19,9 +19,9 @@ public final class ClientTimesheet {
   }
 
   /**
-   * A client's timesheet that has been handed in, but not read yet.
+   * A client's timesheet that has been uploaded, but not read yet.
    */
-  public static ClientTimesheet handedIn(ClientTimesheetDocument document) {
+  public static ClientTimesheet of(ClientTimesheetDocument document) {
     return new ClientTimesheet(document, Reading.Unread.INSTANCE);
   }
 
@@ -57,7 +57,7 @@ public final class ClientTimesheet {
   /**
    * Whether the client's timesheet was read, but concerns another period: it covers none of the days of the month.
    */
-  boolean isOfAnotherPeriodThan(YearMonth month) {
+  public boolean isOfAnotherPeriodThan(YearMonth month) {
     return hoursReportedByClient()
         .filter(reported -> !reported.isEmpty() && !reported.coversAnyDayOf(month))
         .isPresent();

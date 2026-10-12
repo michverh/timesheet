@@ -2,7 +2,6 @@ package eu.openvalue.timesheet.domain;
 
 import static eu.openvalue.timesheet.domain.HourCategory.AVAILABLE;
 import static eu.openvalue.timesheet.domain.HourCategory.PUBLIC_HOLIDAY;
-import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
@@ -22,12 +21,12 @@ class TimesheetPrefillTest {
   private final TimesheetPrefill prefill = new TimesheetPrefill(new DutchPublicHolidays());
 
   @Test
-  void booksEightWorkedHoursOnRegularWeekdaysWhenAssignedToAClient() {
+  void leavesRegularWeekdaysForTheClientsTimesheetsWhenAssignedToAClient() {
     // When
     var timesheet = prefill.prefill(MAY_2026, PROFESSIONAL, ASSIGNED);
 
     // Then
-    assertThat(timesheet.day(MONDAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
+    assertThat(timesheet.day(MONDAY).bookedHours()).isEmpty();
   }
 
   @Test
@@ -40,13 +39,13 @@ class TimesheetPrefillTest {
   }
 
   @Test
-  void booksAStandardWorkWeekOverTheWholeMonth() {
+  void booksAStandardWorkWeekOverTheWholeMonthOnTheBench() {
     // When
-    var timesheet = prefill.prefill(MAY_2026, PROFESSIONAL, ASSIGNED);
+    var timesheet = prefill.prefill(MAY_2026, PROFESSIONAL, ON_BENCH);
 
     // Then: 21 weekdays, of which Ascension Day and Whit Monday are public holidays
     assertThat(timesheet.days())
-        .filteredOn(day -> day.hours(WORKED).equals(Hours.of(8)))
+        .filteredOn(day -> day.hours(AVAILABLE).equals(Hours.of(8)))
         .hasSize(19);
   }
 

@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * The timesheet a client keeps of the professional's hours, as handed in alongside the company's own timesheet.
+ * The timesheet a client keeps of the professional's hours, as uploaded to import the hours worked into the company's own timesheet.
  */
 public final class ClientTimesheetDocument {
 

@@ -1,12 +1,14 @@
 package eu.openvalue.timesheet.adapter.in.web;
 
-import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetCommand;
-import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
+import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsCommand;
+import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsUseCase;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Professional;
 import java.io.IOException;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -18,30 +20,37 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Uploading the client's own timesheet, after which htmx reloads the page.
+ * Uploading the client's own timesheets for a month in one go, typically one per week, after which htmx reloads the
+ * page.
  */
 @Controller
 class ClientTimesheetController {
 
-  private final AttachClientTimesheetUseCase attach;
+  private final ImportClientTimesheetsUseCase importing;
 
-  ClientTimesheetController(AttachClientTimesheetUseCase attach) {
-    this.attach = attach;
+  ClientTimesheetController(ImportClientTimesheetsUseCase importing) {
+    this.importing = importing;
   }
 
   @PostMapping("/timesheets/{month}/client-timesheet")
   ResponseEntity<String> upload(@PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth month,
-      @RequestParam("file") MultipartFile file, Professional professional) throws IOException {
-    var fileName = fileNameWithoutPath(file.getOriginalFilename());
-    var format = DocumentFormat.ofFileName(fileName);
-    if (file.isEmpty()) {
-      return rejected("The uploaded file is empty.");
+      @RequestParam("files") List<MultipartFile> files, Professional professional) throws IOException {
+    var documents = new ArrayList<ClientTimesheetDocument>();
+    for (var file : files) {
+      var fileName = fileNameWithoutPath(file.getOriginalFilename());
+      var format = DocumentFormat.ofFileName(fileName);
+      if (file.isEmpty()) {
+        return rejected("%s is empty.".formatted(fileName));
+      }
+      if (format.isEmpty()) {
+        return rejected("Upload %s as a PNG, JPG, PDF or XLSX file.".formatted(fileName));
+      }
+      documents.add(new ClientTimesheetDocument(fileName, format.get(), file.getBytes()));
     }
-    if (format.isEmpty()) {
-      return rejected("Upload the client timesheet as a PNG, JPG, PDF or XLSX file.");
+    if (documents.isEmpty()) {
+      return rejected("Choose the client's timesheets to upload.");
     }
-    var document = new ClientTimesheetDocument(fileName, format.get(), file.getBytes());
-    attach.attach(new AttachClientTimesheetCommand(professional, month, document));
+    importing.importClientTimesheets(new ImportClientTimesheetsCommand(professional, month, documents));
     return ResponseEntity.noContent().header("HX-Refresh", "true").build();
   }
 

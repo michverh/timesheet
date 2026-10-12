@@ -85,12 +85,12 @@ class MailTimesheetDeliveryTest {
   }
 
   @Test
-  void attachesTheClientsTimesheetWhenHandedIn() {
+  void attachesTheClientsTimesheetItsHoursWereImportedFrom() {
     // Given
     var clientTimesheet = new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {9, 8, 7});
 
     // When
-    delivery.deliver(submission(Optional.empty(), Optional.of(clientTimesheet)));
+    delivery.deliver(submission(Optional.empty(), List.of(clientTimesheet)));
 
     // Then
     var message = onlyMessage();
@@ -101,6 +101,24 @@ class MailTimesheetDeliveryTest {
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             tuple("acme-may.pdf", "application/pdf"));
     assertThat((String) message.get("Text")).contains("The client's own timesheet is attached as acme-may.pdf.");
+  }
+
+  @Test
+  void attachesAllTheClientsTimesheetsTheHoursWereImportedFrom() {
+    // Given
+    var firstWeek = new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1});
+    var secondWeek = new ClientTimesheetDocument("week-20.png", DocumentFormat.PNG, new byte[] {2});
+    var thirdWeek = new ClientTimesheetDocument("week-21.png", DocumentFormat.PNG, new byte[] {3});
+
+    // When
+    delivery.deliver(submission(Optional.empty(), List.of(firstWeek, secondWeek, thirdWeek)));
+
+    // Then
+    var message = onlyMessage();
+    assertThat(attachments(message)).extracting(attachment -> attachment.get("FileName"))
+        .containsExactly("Urenverantwoording_2026-05_Jan_Jansen.xlsx", "week-19.png", "week-20.png", "week-21.png");
+    assertThat((String) message.get("Text"))
+        .contains("The client's own timesheets are attached as week-19.png, week-20.png and week-21.png.");
   }
 
   @Test
@@ -146,14 +164,14 @@ class MailTimesheetDeliveryTest {
   }
 
   private static TimesheetSubmission submission(Optional<LocalDate> replacesSubmissionOf) {
-    return submission(replacesSubmissionOf, Optional.empty());
+    return submission(replacesSubmissionOf, List.of());
   }
 
   private static TimesheetSubmission submission(Optional<LocalDate> replacesSubmissionOf,
-      Optional<ClientTimesheetDocument> clientTimesheet) {
+      List<ClientTimesheetDocument> clientTimesheets) {
     return new TimesheetSubmission(JAN, YearMonth.of(2026, 5), LocalDate.of(2026, 6, 2), replacesSubmissionOf,
         "Urenverantwoording_2026-05_Jan_Jansen.xlsx", new SpreadsheetFile("xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CONTENT), clientTimesheet);
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CONTENT), clientTimesheets);
   }
 
   @SuppressWarnings("unchecked")

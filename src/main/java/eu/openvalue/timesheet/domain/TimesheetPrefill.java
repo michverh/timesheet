@@ -10,8 +10,8 @@ import java.util.Optional;
  * <ul>
  *   <li>Weekends stay empty.</li>
  *   <li>A public holiday is booked as such.</li>
- *   <li>Other weekdays are booked as worked when the professional has an assignment, and as available when on the
- *   bench.</li>
+ *   <li>Other weekdays are booked as available when the professional is on the bench. When the professional works for
+ *   a client, they stay empty: the hours worked come from the client's timesheets.</li>
  * </ul>
  */
 public final class TimesheetPrefill {
@@ -24,13 +24,16 @@ public final class TimesheetPrefill {
 
   public Timesheet prefill(YearMonth month, Professional professional, Optional<Assignment> assignment) {
     var timesheet = Timesheet.start(month, professional, assignment);
-    var regularCategory = timesheet.isOnBench() ? HourCategory.AVAILABLE : HourCategory.WORKED;
     timesheet.days().stream()
         .filter(day -> !day.isWeekend())
         .map(DayEntry::date)
-        .forEach(date -> timesheet.bookHours(date,
-            publicHolidays.isPublicHoliday(date) ? HourCategory.PUBLIC_HOLIDAY : regularCategory,
-            DayEntry.STANDARD_WORKDAY));
+        .forEach(date -> {
+          if (publicHolidays.isPublicHoliday(date)) {
+            timesheet.bookHours(date, HourCategory.PUBLIC_HOLIDAY, DayEntry.STANDARD_WORKDAY);
+          } else if (timesheet.isOnBench()) {
+            timesheet.bookHours(date, HourCategory.AVAILABLE, DayEntry.STANDARD_WORKDAY);
+          }
+        });
     return timesheet;
   }
 }

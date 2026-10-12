@@ -11,7 +11,9 @@ import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetDeliveryFailedException;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.ClientTimesheets;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.FutureMonthNotSubmittableException;
@@ -66,11 +68,11 @@ class SubmittingTimesheetTest {
   }
 
   @Test
-  void handsTheClientsTimesheetInAlongsideWhenAttached() {
+  void handsTheClientsTimesheetsInAlongside() {
     // Given
     var timesheet = Timesheet.start(MAY_2026, JAN, Optional.empty());
     var clientTimesheet = new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {9});
-    timesheet.attachClientTimesheet(clientTimesheet);
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(ClientTimesheet.of(clientTimesheet))));
     timesheets.save(timesheet);
 
     // When
@@ -78,8 +80,8 @@ class SubmittingTimesheetTest {
 
     // Then
     assertThat(delivered).singleElement()
-        .extracting(TimesheetSubmission::clientTimesheet)
-        .isEqualTo(Optional.of(clientTimesheet));
+        .extracting(TimesheetSubmission::clientTimesheets)
+        .isEqualTo(List.of(clientTimesheet));
   }
 
   @Test

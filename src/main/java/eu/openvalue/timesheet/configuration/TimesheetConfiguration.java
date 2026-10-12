@@ -17,23 +17,23 @@ import eu.openvalue.timesheet.adapter.out.reading.TranscribingClientTimesheetRea
 import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
-import eu.openvalue.timesheet.application.AttachingClientTimesheet;
 import eu.openvalue.timesheet.application.CorrectingTimesheet;
 import eu.openvalue.timesheet.application.DownloadingTimesheet;
+import eu.openvalue.timesheet.application.ImportingClientTimesheets;
 import eu.openvalue.timesheet.application.PreparingTimesheetDraft;
 import eu.openvalue.timesheet.application.SubmittingTimesheet;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
-import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.CorrectTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
+import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
-import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
+import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.Clock;
@@ -141,7 +141,7 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  AttachClientTimesheetUseCase attachClientTimesheetUseCase(Timesheets timesheets, ClientTimesheetReader reader) {
-    return new AttachingClientTimesheet(timesheets, reader);
+  ImportClientTimesheetsUseCase importClientTimesheetsUseCase(Timesheets timesheets, ClientTimesheetReader reader) {
+    return new ImportingClientTimesheets(timesheets, reader);
   }
 }

@@ -16,23 +16,25 @@ import java.util.Map;
 /**
  * One editable row of the timesheet page.
  *
+ * @param bookedAsReportedByClient whether the hours worked are booked as the client's timesheets report them
  * @param workdayHours the hours filling the workday, when they add up to more or less than a standard workday;
  *     otherwise empty
  * @param error why the last input for this day was rejected, or {@code null}
  */
 public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCategory, String> hours,
-    String kilometres, String explanation, boolean lacksExplanation, String workdayHours, String error) {
+    String kilometres, String explanation, boolean lacksExplanation, boolean bookedAsReportedByClient,
+    String workdayHours, String error) {
 
   private static final DateTimeFormatter LABEL = DateTimeFormatter.ofPattern("EEE d", Locale.ENGLISH);
 
-  static DayRow of(DayEntry day) {
+  static DayRow of(DayEntry day, boolean bookedAsReportedByClient) {
     var hours = new EnumMap<HourCategory, String>(HourCategory.class);
     for (var category : HourCategory.values()) {
       hours.put(category, format(day.hours(category)));
     }
     return new DayRow(day.date(), LABEL.format(day.date()), day.isWeekend(), hours, format(day.kilometres()),
         day.explanation().map(Explanation::text).orElse(""), day.lacksRequiredExplanation(),
-        day.deviatesFromStandardWorkday() ? HoursFormat.format(day.workdayHours()) : "", null);
+        bookedAsReportedByClient, day.deviatesFromStandardWorkday() ? HoursFormat.format(day.workdayHours()) : "", null);
   }
 
   /**
@@ -42,7 +44,7 @@ public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCate
     var dayOfWeek = date.getDayOfWeek();
     var weekend = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     return new DayRow(date, LABEL.format(date), weekend, input.hours(), input.kilometres(), input.explanation(),
-        false, "", error);
+        false, false, "", error);
   }
 
   public boolean deviatesFromStandardWorkday() {

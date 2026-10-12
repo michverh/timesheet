@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.domain;
 import static eu.openvalue.timesheet.domain.HourCategory.LEAVE;
 import static eu.openvalue.timesheet.domain.HourCategory.OTHER;
 import static eu.openvalue.timesheet.domain.HourCategory.OVERTIME;
+import static eu.openvalue.timesheet.domain.HourCategory.STAND_BY;
 import static eu.openvalue.timesheet.domain.HourCategory.TRAINING;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -362,170 +364,220 @@ class TimesheetTest {
   }
 
   @Test
-  void holdsTheClientsTimesheet() {
+  void holdsTheClientsTimesheets() {
     // Given
-    var document = clientTimesheet("acme-february.pdf");
+    var firstWeek = read("week-6.png", Map.of(LocalDate.of(2028, 2, 7), Hours.of(8)));
+    var secondWeek = read("week-7.png", Map.of(A_DAY, Hours.of(8)));
 
     // When
-    timesheet.attachClientTimesheet(document);
+    importAll(firstWeek, secondWeek);
 
     // Then
-    assertThat(timesheet.clientTimesheet().map(ClientTimesheet::document)).contains(document);
+    assertThat(timesheet.clientTimesheets().all()).containsExactly(firstWeek, secondWeek);
   }
 
   @Test
-  void replacesTheClientsTimesheet() {
+  void replacesTheClientsTimesheetsImportedBefore() {
     // Given
-    timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
+    importAll(read("first.pdf", Map.of()));
 
     // When
-    timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
+    importAll(read("second.pdf", Map.of()));
 
     // Then
-    assertThat(timesheet.clientTimesheet()).map(ClientTimesheet::document).map(ClientTimesheetDocument::fileName).contains("second.pdf");
+    assertThat(timesheet.clientTimesheets().documents()).extracting(ClientTimesheetDocument::fileName)
+        .containsExactly("second.pdf");
   }
 
   @Test
-  void refusesAClientsTimesheetOnceSubmitted() {
+  void refusesClientsTimesheetsOnceSubmitted() {
     // Given
     timesheet.submit(LocalDate.of(2028, 3, 1));
 
     // When / Then
-    assertThatThrownBy(() -> timesheet.attachClientTimesheet(clientTimesheet("late.pdf")))
+    assertThatThrownBy(() -> importAll(read("late.pdf", Map.of())))
         .isInstanceOf(TimesheetAlreadySubmittedException.class);
   }
 
   @Test
-  void lacksTheClientsTimesheetWhenWorkingForAClientWithoutOne() {
+  void lacksTheClientsTimesheetsWhenWorkingForAClientWithoutThem() {
     assertThat(timesheet.lacksClientTimesheet()).isTrue();
   }
 
   @Test
-  void doesNotLackTheClientsTimesheetOnceHandedIn() {
+  void doesNotLackTheClientsTimesheetsOnceImported() {
     // When
-    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+    importAll(read("acme-february.pdf", Map.of()));
 
     // Then
     assertThat(timesheet.lacksClientTimesheet()).isFalse();
   }
 
   @Test
-  void doesNotLackAClientsTimesheetOnTheBench() {
+  void doesNotLackClientsTimesheetsOnTheBench() {
     assertThat(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()).lacksClientTimesheet()).isFalse();
   }
 
   @Test
-  void keepsTheClientsTimesheetWhenRestarted() {
+  void booksTheHoursWorkedThatTheClientsTimesheetsReport() {
+    // When
+    importAll(read("week-6.png", Map.of(LocalDate.of(2028, 2, 7), Hours.of(8))),
+        read("week-7.png", Map.of(A_DAY, Hours.of(7, 30))));
+
+    // Then
+    assertThat(timesheet.day(LocalDate.of(2028, 2, 7)).hours(WORKED)).isEqualTo(Hours.of(8));
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(7, 30));
+  }
+
+  @Test
+  void replacesTheHoursWorkedButKeepsTheOtherHoursOfTheDay() {
     // Given
-    timesheet.attachClientTimesheet(clientTimesheet("acme-february.pdf"));
+    timesheet.rebookDay(A_DAY, Map.of(WORKED, Hours.of(8), LEAVE, Hours.of(4)));
+
+    // When
+    importAll(read("week-7.png", Map.of(A_DAY, Hours.of(4))));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(4), LEAVE, Hours.of(4)));
+  }
+
+  @Test
+  void leavesDaysTheClientsTimesheetsDisagreeAboutAsTheyAre() {
+    // Given
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(6));
+
+    // When
+    importAll(read("week-7.png", Map.of(A_DAY, Hours.of(8))), read("week-7-again.png", Map.of(A_DAY, Hours.of(7))));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(6));
+    assertThat(timesheet.daysInDisputeBetweenClientTimesheets()).containsExactly(A_DAY);
+  }
+
+  @Test
+  void booksTheHoursWorkedThatOverlappingClientsTimesheetsAgreeOn() {
+    // When
+    importAll(read("week-7.png", Map.of(A_DAY, Hours.of(8))), read("week-7-again.png", Map.of(A_DAY, Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
+    assertThat(timesheet.daysInDisputeBetweenClientTimesheets()).isEmpty();
+  }
+
+  @Test
+  void booksNothingOutsideTheMonth() {
+    // When
+    importAll(read("week-9.png", Map.of(LocalDate.of(2028, 3, 1), Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.totalHours(WORKED)).isEqualTo(Hours.ZERO);
+  }
+
+  @Test
+  void booksNoHoursWorkedThatWouldMakeADayExceed24Hours() {
+    // Given
+    timesheet.bookHours(A_DAY, STAND_BY, Hours.of(20));
+
+    // When
+    importAll(read("week-7.png", Map.of(A_DAY, Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.ZERO);
+  }
+
+  @Test
+  void listsTheDaysBookedAsTheClientsTimesheetsReportThem() {
+    // Given
+    importAll(read("week-6.png", Map.of(LocalDate.of(2028, 2, 7), Hours.of(8), LocalDate.of(2028, 2, 8), Hours.of(8))));
+
+    // When
+    timesheet.bookHours(LocalDate.of(2028, 2, 8), WORKED, Hours.of(6));
+
+    // Then
+    assertThat(timesheet.daysBookedAsReportedByClient()).containsExactly(LocalDate.of(2028, 2, 7));
+  }
+
+  @Test
+  void listsTheWeekdaysTheClientsTimesheetsDoNotCover() {
+    // Given
+    var may = new TimesheetPrefill(new DutchPublicHolidays())
+        .prefill(YearMonth.of(2026, 5), PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))));
+    var covered = new HashMap<LocalDate, Hours>();
+    LocalDate.of(2026, 5, 1).datesUntil(LocalDate.of(2026, 5, 25)).forEach(date -> covered.put(date, Hours.of(8)));
+
+    // When
+    may.importClientTimesheets(ClientTimesheets.of(List.of(read("may.pdf", covered))));
+
+    // Then: Whit Monday 25 May is a public holiday
+    assertThat(may.weekdaysNotCoveredByClientTimesheets()).containsExactly(
+        LocalDate.of(2026, 5, 26), LocalDate.of(2026, 5, 27), LocalDate.of(2026, 5, 28), LocalDate.of(2026, 5, 29));
+  }
+
+  @Test
+  void listsTheWeekdaysOfAnUnreadableClientsTimesheetAsNotCovered() {
+    // When
+    importAll(ClientTimesheet.of(clientTimesheet("scribbles.png")).unreadable());
+
+    // Then
+    assertThat(timesheet.weekdaysNotCoveredByClientTimesheets()).hasSize(21);
+  }
+
+  @Test
+  void listsNoWeekdaysAsNotCoveredBeforeAnyClientsTimesheetIsImported() {
+    assertThat(timesheet.weekdaysNotCoveredByClientTimesheets()).isEmpty();
+  }
+
+  @Test
+  void booksTheHoursWorkedOfTheClientsTimesheetsAgainWhenRestarted() {
+    // Given
+    importAll(read("week-7.png", Map.of(A_DAY, Hours.of(7))));
+    timesheet.bookHours(A_DAY, WORKED, Hours.of(2));
 
     // When
     timesheet.restartFrom(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()));
 
     // Then
-    assertThat(timesheet.clientTimesheet()).isPresent();
+    assertThat(timesheet.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(7));
   }
 
-  @Test
-  void forgetsTheReadingOfAReplacedClientsTimesheet() {
-    // Given
-    timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(A_DAY, Hours.of(8))));
-
-    // When
-    timesheet.attachClientTimesheet(clientTimesheet("second.pdf"));
-
-    // Then
-    assertThat(timesheet.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
+  private void importAll(ClientTimesheet... imported) {
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(imported)));
   }
 
-  @Test
-  void remembersThatTheClientsTimesheetCouldNotBeRead() {
-    // Given
-    timesheet.attachClientTimesheet(clientTimesheet("scribbles.png"));
-
-    // When
-    timesheet.markClientTimesheetUnreadable();
-
-    // Then
-    assertThat(timesheet.clientTimesheet().orElseThrow().isUnreadable()).isTrue();
-    assertThat(timesheet.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
-  }
-
-  @Test
-  void needsAClientsTimesheetToRecordWhatItReports() {
-    assertThatThrownBy(() -> timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of())))
-        .isInstanceOf(IllegalStateException.class);
-  }
-
-  @Test
-  void recognisesAClientsTimesheetOfAnotherPeriod() {
-    // Given
-    timesheet.attachClientTimesheet(clientTimesheet("acme-august.pdf"));
-
-    // When
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(LocalDate.of(2027, 8, 3), Hours.of(8))));
-
-    // Then
-    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isTrue();
-  }
-
-  @Test
-  void recognisesAClientsTimesheetOfThisMonth() {
-    // Given
-    timesheet.attachClientTimesheet(clientTimesheet("acme-week.pdf"));
-
-    // When
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(
-        LocalDate.of(2028, 1, 31), Hours.of(8), LocalDate.of(2028, 2, 1), Hours.of(8))));
-
-    // Then
-    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isFalse();
-  }
-
-  @Test
-  void doesNotTakeAClientsTimesheetWithoutDaysForOneOfAnotherPeriod() {
-    // Given
-    timesheet.attachClientTimesheet(clientTimesheet("empty.pdf"));
-
-    // When
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of()));
-
-    // Then
-    assertThat(timesheet.isClientTimesheetOfAnotherPeriod()).isFalse();
+  private static ClientTimesheet read(String fileName, Map<LocalDate, Hours> hoursWorked) {
+    return ClientTimesheet.of(clientTimesheet(fileName)).readAs(new ClientReportedHours(hoursWorked));
   }
 
   private static ClientTimesheetDocument clientTimesheet(String fileName) {
-    return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, new byte[] {1, 2, 3});
+    return new ClientTimesheetDocument(fileName, DocumentFormat.PDF, fileName.getBytes());
   }
 
   @Test
   void canBeRestoredAsItWasKept() {
     // Given
     timesheet.bookHours(A_DAY, WORKED, Hours.of(8));
-    var clientTimesheet = ClientTimesheet.handedIn(clientTimesheet("acme.pdf"))
-        .readAs(new ClientReportedHours(Map.of(A_DAY, Hours.of(7))));
+    var clientTimesheets = ClientTimesheets.of(List.of(read("acme.pdf", Map.of(A_DAY, Hours.of(7)))));
 
     // When
-    var restored = restore(timesheet.days(), Optional.of(SUBMISSION), Optional.of(clientTimesheet));
+    var restored = restore(timesheet.days(), Optional.of(SUBMISSION), clientTimesheets);
 
     // Then
     assertThat(restored.day(A_DAY).hours(WORKED)).isEqualTo(Hours.of(8));
     assertThat(restored.submittedOn()).contains(SUBMISSION);
     assertThat(restored.previouslySubmittedOn()).contains(FIRST_SUBMISSION);
-    assertThat(restored.clientTimesheet()).contains(clientTimesheet);
+    assertThat(restored.clientTimesheets()).isEqualTo(clientTimesheets);
   }
 
   @Test
   void cannotBeRestoredWithoutEveryDayOfTheMonth() {
-    assertThatThrownBy(() -> restore(timesheet.days().subList(0, 28), Optional.empty(), Optional.empty()))
+    assertThatThrownBy(() -> restore(timesheet.days().subList(0, 28), Optional.empty(), ClientTimesheets.NONE))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   private static Timesheet restore(List<DayEntry> days, Optional<LocalDate> submittedOn,
-      Optional<ClientTimesheet> clientTimesheet) {
+      ClientTimesheets clientTimesheets) {
     return Timesheet.restore(FEBRUARY_2028, PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))), days,
-        submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheet);
+        submittedOn, Optional.of(FIRST_SUBMISSION), clientTimesheets);
   }
 
   @Test

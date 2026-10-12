@@ -4,6 +4,7 @@ import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.Professional;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -12,11 +13,11 @@ import java.util.Optional;
  *
  * @param replacesSubmissionOf when this is a correction: the date of the submission it replaces
  * @param fileName the name of the spreadsheet file
- * @param clientTimesheet the client's own timesheet, when handed in
+ * @param clientTimesheets the client's own timesheets the hours worked were imported from
  */
 public record TimesheetSubmission(Professional professional, YearMonth month, LocalDate submittedOn,
     Optional<LocalDate> replacesSubmissionOf, String fileName, SpreadsheetFile spreadsheet,
-    Optional<ClientTimesheetDocument> clientTimesheet) {
+    List<ClientTimesheetDocument> clientTimesheets) {
 
   public TimesheetSubmission {
     Objects.requireNonNull(professional, "professional");
@@ -25,7 +26,7 @@ public record TimesheetSubmission(Professional professional, YearMonth month, Lo
     Objects.requireNonNull(replacesSubmissionOf, "replacesSubmissionOf");
     Objects.requireNonNull(fileName, "fileName");
     Objects.requireNonNull(spreadsheet, "spreadsheet");
-    Objects.requireNonNull(clientTimesheet, "clientTimesheet");
+    clientTimesheets = List.copyOf(clientTimesheets);
   }
 
   public boolean isCorrection() {

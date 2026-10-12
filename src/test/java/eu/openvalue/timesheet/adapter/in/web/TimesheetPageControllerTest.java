@@ -15,12 +15,16 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.ClientTimesheets;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.Hours;
+import eu.openvalue.timesheet.domain.Timesheet;
 import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -122,35 +126,34 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText()
-        .contains("The timesheet <span>ACME</span> keeps of your hours has not been uploaded yet")
+        .contains("The timesheets <span>ACME</span> keeps of your hours have not been uploaded yet")
         .contains("not uploaded", ">Upload</button>");
   }
 
   @Test
-  void showsTheUploadedClientsTimesheetAndOffersToReplaceIt() {
+  void showsTheUploadedClientsTimesheetsAndOffersToReplaceThem() {
     // Given
-    var withClientTimesheet = draft();
-    withClientTimesheet.attachClientTimesheet(
-        new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, new byte[] {1}));
-    when(prepareDraft.prepareDraft(any())).thenReturn(withClientTimesheet);
+    var draft = draft();
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(8))),
+        read("week-20.png", Map.of(LocalDate.of(2026, 5, 11), Hours.of(8))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
 
     // When
     var response = mvc.get().uri("/timesheets/2026-05");
 
     // Then
     assertThat(response).hasStatusOk().bodyText()
-        .contains("<strong>acme-may.pdf</strong>", ">Replace</button>")
-        .doesNotContain("has not been uploaded yet");
+        .contains("<strong>week-19.png</strong>", "<strong>week-20.png</strong>", ">Replace all</button>")
+        .contains("name=\"files\" multiple")
+        .doesNotContain("have not been uploaded yet");
   }
 
   @Test
-  void showsThePeriodTheClientsTimesheetCovers() {
+  void showsThePeriodEachClientsTimesheetCovers() {
     // Given
     var draft = draft();
-    draft.attachClientTimesheet(new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, new byte[] {1}));
-    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
-        LocalDate.of(2026, 5, 4), Hours.of(8),
-        LocalDate.of(2026, 5, 10), Hours.ZERO)));
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(8), LocalDate.of(2026, 5, 10),
+        Hours.ZERO)));
     when(prepareDraft.prepareDraft(any())).thenReturn(draft);
 
     // When
@@ -163,13 +166,11 @@ class TimesheetPageControllerTest {
   }
 
   @Test
-  void warnsWhenTheClientsTimesheetCoversAnotherPeriod() {
+  void warnsWhenAClientsTimesheetCoversAnotherPeriod() {
     // Given
     var draft = draft();
-    draft.attachClientTimesheet(new ClientTimesheetDocument("week-27.png", DocumentFormat.PNG, new byte[] {1}));
-    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
-        LocalDate.of(2026, 6, 29), Hours.of(8),
-        LocalDate.of(2026, 7, 5), Hours.ZERO)));
+    importAll(draft, read("week-27.png", Map.of(LocalDate.of(2026, 6, 29), Hours.of(8), LocalDate.of(2026, 7, 5),
+        Hours.ZERO)));
     when(prepareDraft.prepareDraft(any())).thenReturn(draft);
 
     // When
@@ -178,17 +179,15 @@ class TimesheetPageControllerTest {
     // Then
     assertThat(response).hasStatusOk().bodyText()
         .contains("<span>week-27.png</span> covers", "<span>29 June – 5 July 2026</span>, which is not part of",
-            "Did you upload the client's timesheet for the right month?");
+            "Did you upload the client's timesheet for the right");
   }
 
   @Test
   void namesBothYearsOfAPeriodAcrossTheTurnOfTheYear() {
     // Given
     var draft = draft();
-    draft.attachClientTimesheet(new ClientTimesheetDocument("week-1.png", DocumentFormat.PNG, new byte[] {1}));
-    draft.recordHoursReportedByClient(new ClientReportedHours(Map.of(
-        LocalDate.of(2025, 12, 29), Hours.of(8),
-        LocalDate.of(2026, 1, 4), Hours.ZERO)));
+    importAll(draft, read("week-1.png", Map.of(LocalDate.of(2025, 12, 29), Hours.of(8), LocalDate.of(2026, 1, 4),
+        Hours.ZERO)));
     when(prepareDraft.prepareDraft(any())).thenReturn(draft);
 
     // When
@@ -196,6 +195,55 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText().contains("(29 December 2025 – 4 January 2026)");
+  }
+
+  @Test
+  void marksTheHoursWorkedBookedAsTheClientsTimesheetsReportThem() {
+    // Given
+    var draft = draft();
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(7))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .containsPattern("class=\"hours from-client\"[^>]*title=\"As on the timesheet of the client\"\\s+"
+            + "id=\"2026-05-04-WORKED\"[^>]*value=\"7\"")
+        .doesNotContainPattern("from-client\"[^>]*id=\"2026-05-05-WORKED\"");
+  }
+
+  @Test
+  void listsTheDaysTheClientsTimesheetsDisagreeAbout() {
+    // Given
+    var draft = draft();
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(8))),
+        read("week-19-again.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(6))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("report different hours worked on these days", "<li>Monday 4 May</li>");
+  }
+
+  @Test
+  void listsTheWeekdaysTheClientsTimesheetsDoNotCover() {
+    // Given
+    var draft = draft();
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(8))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("None of the client's timesheets cover these weekdays", "<li>Tuesday 5 May</li>")
+        .doesNotContain("<li>Monday 4 May</li>", "<li>Thursday 14 May</li>");
   }
 
   @Test
@@ -217,11 +265,11 @@ class TimesheetPageControllerTest {
   }
 
   @Test
-  void asksToCompareByHandWhenTheClientsTimesheetCouldNotBeRead() {
+  void asksToFillInTheHoursOfAClientsTimesheetThatCouldNotBeRead() {
     // Given
     var draft = draft();
-    draft.attachClientTimesheet(new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF, new byte[] {1}));
-    draft.markClientTimesheetUnreadable();
+    importAll(draft, ClientTimesheet.of(new ClientTimesheetDocument("acme.pdf", DocumentFormat.PDF,
+        new byte[] {1})).unreadable());
     when(prepareDraft.prepareDraft(any())).thenReturn(draft);
 
     // When
@@ -229,7 +277,16 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText()
-        .contains("The hours could not be read reliably from <span>acme.pdf</span>");
+        .contains("The hours could not be read reliably from <span>acme.pdf</span>", "(could not be read)");
+  }
+
+  private static void importAll(Timesheet timesheet, ClientTimesheet... imported) {
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(imported)));
+  }
+
+  private static ClientTimesheet read(String fileName, Map<LocalDate, Hours> hoursWorked) {
+    return ClientTimesheet.of(new ClientTimesheetDocument(fileName, DocumentFormat.PNG, fileName.getBytes()))
+        .readAs(new ClientReportedHours(hoursWorked));
   }
 
   @Test

@@ -2,19 +2,19 @@ package eu.openvalue.timesheet.adapter.out.persistence;
 
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
+import eu.openvalue.timesheet.domain.ClientTimesheet;
+import eu.openvalue.timesheet.domain.ClientTimesheets;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
@@ -56,9 +56,10 @@ class TimesheetEntity {
   @Column(nullable = false)
   private long version;
 
-  @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-  @JoinColumn(name = "client_timesheet_id")
-  private ClientTimesheetEntity clientTimesheet;
+  @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+  @JoinColumn(name = "timesheet_id", nullable = false, updatable = false)
+  @OrderBy("id")
+  private List<ClientTimesheetEntity> clientTimesheets = new ArrayList<>();
 
   @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
   @JoinColumn(name = "timesheet_id", nullable = false, updatable = false)
@@ -87,14 +88,14 @@ class TimesheetEntity {
     submittedOn = timesheet.submittedOn().orElse(null);
     previouslySubmittedOn = timesheet.previouslySubmittedOn().orElse(null);
     copyDays(timesheet);
-    copyClientTimesheet(timesheet);
+    copyClientTimesheets(timesheet);
   }
 
   Timesheet restore() {
     return Timesheet.restore(YearMonth.from(month), Professional.withEmail(professionalEmail), assignment(),
         days.stream().map(TimesheetDayEntity::restore).toList(),
         Optional.ofNullable(submittedOn), Optional.ofNullable(previouslySubmittedOn),
-        Optional.ofNullable(clientTimesheet).map(ClientTimesheetEntity::restore));
+        ClientTimesheets.of(clientTimesheets.stream().map(ClientTimesheetEntity::restore).toList()));
   }
 
   private Optional<Assignment> assignment() {
@@ -117,16 +118,30 @@ class TimesheetEntity {
     }
   }
 
-  private void copyClientTimesheet(Timesheet timesheet) {
-    var handedIn = timesheet.clientTimesheet();
-    if (handedIn.isEmpty()) {
-      clientTimesheet = null;
-      return;
+  /**
+   * Keeps the client's timesheets that are still imported, updating what was read from them, and replaces them all
+   * when others were imported.
+   */
+  private void copyClientTimesheets(Timesheet timesheet) {
+    var imported = timesheet.clientTimesheets().all();
+    if (!holdsTheDocumentsOf(imported)) {
+      clientTimesheets.clear();
+      imported.forEach(client -> clientTimesheets.add(new ClientTimesheetEntity(client.document())));
     }
-    var document = handedIn.get().document();
-    if (clientTimesheet == null || !clientTimesheet.holds(document)) {
-      clientTimesheet = new ClientTimesheetEntity(document);
+    for (var i = 0; i < imported.size(); i++) {
+      clientTimesheets.get(i).copyReading(imported.get(i));
     }
-    clientTimesheet.copyReading(handedIn.get());
+  }
+
+  private boolean holdsTheDocumentsOf(List<ClientTimesheet> imported) {
+    if (clientTimesheets.size() != imported.size()) {
+      return false;
+    }
+    for (var i = 0; i < imported.size(); i++) {
+      if (!clientTimesheets.get(i).holds(imported.get(i).document())) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -59,20 +59,37 @@
   </section>
 
   <section class="banner warning" th:if="${page.lacksClientTimesheet and !page.submitted}">
-    The timesheet <span th:text="${page.client}">ACME</span> keeps of your hours has not been uploaded yet. You can
-    submit without it, but HR usually wants it alongside.
+    The timesheets <span th:text="${page.client}">ACME</span> keeps of your hours have not been uploaded yet. Upload
+    them to fill in the hours worked; select all weeks of the month at once.
   </section>
 
-  <section class="banner warning" th:if="${page.clientTimesheetOfAnotherPeriod and !page.submitted}">
-    <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span> covers
-    <span th:text="${page.clientTimesheetPeriod.orElse('')}">1 – 31 August 2026</span>, which is not part of
-    <span th:text="${page.monthLabel}">October 2026</span>. Did you upload the client's timesheet for the right month?
-  </section>
+  <th:block th:unless="${page.submitted}">
+    <section class="banner warning" th:each="client : ${page.clientTimesheets}" th:if="${client.ofAnotherPeriod}">
+      <span th:text="${client.fileName}">acme.pdf</span> covers
+      <span th:text="${client.period.orElse('')}">1 – 31 August 2026</span>, which is not part of
+      <span th:text="${page.monthLabel}">October 2026</span>. Did you upload the client's timesheet for the right
+      month?
+    </section>
 
-  <section class="banner info" th:if="${page.clientTimesheetUnreadable and !page.submitted}">
-    The hours could not be read reliably from <span th:text="${page.clientTimesheetFileName.orElse('')}">acme.pdf</span>,
-    so compare them with yours by hand.
-  </section>
+    <section class="banner warning" th:unless="${page.daysInDisputeBetweenClientTimesheets.isEmpty()}">
+      <p>The client's timesheets report different hours worked on these days, so fill them in yourself:</p>
+      <ul>
+        <li th:each="day : ${page.daysInDisputeBetweenClientTimesheets}" th:text="${day}">Monday 4 May</li>
+      </ul>
+    </section>
+
+    <section class="banner warning" th:unless="${page.weekdaysNotCoveredByClientTimesheets.isEmpty()}">
+      <p>None of the client's timesheets cover these weekdays, so fill in their hours yourself:</p>
+      <ul>
+        <li th:each="day : ${page.weekdaysNotCoveredByClientTimesheets}" th:text="${day}">Monday 4 May</li>
+      </ul>
+    </section>
+
+    <section class="banner info" th:each="client : ${page.clientTimesheets}" th:if="${client.unreadable}">
+      The hours could not be read reliably from <span th:text="${client.fileName}">acme.pdf</span>, so fill in the
+      days it covers yourself.
+    </section>
+  </th:block>
 
   <section class="banner info" th:if="${page.submitted}">
     Submitted to HR on <strong th:text="${page.submittedOn.orElse('')}">7 October 2026</strong>.
@@ -87,19 +104,23 @@
   <form class="client-timesheet" th:unless="${page.onBench}"
         th:hx-post="@{/timesheets/{month}/client-timesheet(month=${page.month})}" hx-encoding="multipart/form-data"
         hx-disabled-elt="find button" hx-indicator="find .reading">
-    <span class="label">Client timesheet</span>
-    <span th:if="${page.clientTimesheetFileName.isPresent()}">
-      <strong th:text="${page.clientTimesheetFileName.get()}">acme-may.pdf</strong>
-      <span class="muted" th:if="${page.clientTimesheetPeriod.isPresent()}"
-            th:text="|(${page.clientTimesheetPeriod.get()})|">(1 – 31 May 2026)</span>
-    </span>
-    <span class="muted" th:if="${page.clientTimesheetFileName.isEmpty()}">not uploaded</span>
+    <span class="label">Client timesheets</span>
+    <ul class="documents" th:unless="${page.clientTimesheets.isEmpty()}">
+      <li th:each="client : ${page.clientTimesheets}">
+        <strong th:text="${client.fileName}">week-19.png</strong>
+        <span class="muted" th:if="${client.period.isPresent()}" th:text="|(${client.period.get()})|">(4 – 10 May
+          2026)</span>
+        <span class="muted" th:if="${client.unreadable}">(could not be read)</span>
+      </li>
+    </ul>
+    <span class="muted" th:if="${page.clientTimesheets.isEmpty()}">not uploaded</span>
     <th:block th:unless="${page.submitted}">
-      <label class="visually-hidden" for="client-timesheet-file">Client timesheet file</label>
-      <input id="client-timesheet-file" type="file" name="file" accept=".png,.jpg,.jpeg,.pdf,.xlsx" required>
+      <label class="visually-hidden" for="client-timesheet-files">Client timesheet files</label>
+      <input id="client-timesheet-files" type="file" name="files" multiple accept=".png,.jpg,.jpeg,.pdf,.xlsx"
+             required>
       <button type="submit" class="secondary"
-              th:text="${page.clientTimesheetFileName.isPresent()} ? 'Replace' : 'Upload'">Upload</button>
-      <span class="reading htmx-indicator">Reading the hours from the client's timesheet, this can take a minute...</span>
+              th:text="${page.clientTimesheets.isEmpty()} ? 'Upload' : 'Replace all'">Upload</button>
+      <span class="reading htmx-indicator">Reading the hours from the client's timesheets, this can take a while...</span>
     </th:block>
   </form>
 

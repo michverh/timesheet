@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * The file formats a client's own timesheet can be handed in as: a screenshot, a PDF or an Excel workbook.
+ * The file formats a client's own timesheet can be uploaded as: a screenshot, a PDF or an Excel workbook.
  */
 public enum DocumentFormat {
   PNG("image/png", "png"),

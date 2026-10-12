@@ -71,8 +71,7 @@ class PreparingTimesheetDraftTest {
     prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).hours(WORKED))
-        .isEqualTo(Hours.of(8));
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).bookedHours()).isEmpty();
   }
 
   @Test
@@ -119,7 +118,7 @@ class PreparingTimesheetDraftTest {
 
     // Then
     assertThat(timesheet.assignment()).contains(AT_ACME);
-    assertThat(timesheet.day(MONDAY.plusDays(1)).bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(8)));
+    assertThat(timesheet.isOnBench()).isFalse();
   }
 
   @Test
@@ -141,6 +140,6 @@ class PreparingTimesheetDraftTest {
     prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).hours(WORKED)).isEqualTo(Hours.of(8));
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().day(MONDAY.plusDays(1)).bookedHours()).isEmpty();
   }
 }

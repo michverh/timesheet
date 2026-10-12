@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * How the client's own timesheet handed in with a timesheet is kept, together with what was read from it.
+ * How a client's timesheet imported into a timesheet is kept, together with what was read from it.
  */
 @Entity
 @Table(name = "client_timesheet")
@@ -91,11 +91,11 @@ class ClientTimesheetEntity {
   }
 
   ClientTimesheet restore() {
-    var handedIn = ClientTimesheet.handedIn(document());
+    var uploaded = ClientTimesheet.of(document());
     return switch (reading) {
-      case UNREAD -> handedIn;
-      case READ -> handedIn.readAs(hoursReportedByClient());
-      case UNREADABLE -> handedIn.unreadable();
+      case UNREAD -> uploaded;
+      case READ -> uploaded.readAs(hoursReportedByClient());
+      case UNREADABLE -> uploaded.unreadable();
     };
   }
 

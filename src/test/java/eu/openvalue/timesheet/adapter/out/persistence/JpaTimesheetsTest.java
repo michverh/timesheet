@@ -13,6 +13,7 @@ import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.ClientReportedHours;
 import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
+import eu.openvalue.timesheet.domain.ClientTimesheets;
 import eu.openvalue.timesheet.domain.DocumentFormat;
 import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.Hours;
@@ -22,6 +23,7 @@ import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -163,85 +165,103 @@ class JpaTimesheetsTest {
   }
 
   @Test
-  void keepsTheClientsTimesheetAndWhatWasReadFromIt() {
+  void keepsTheClientsTimesheetsAndWhatWasReadFromThem() {
     // Given
     var timesheet = draft();
-    timesheet.bookHours(MONDAY, WORKED, Hours.of(8));
-    timesheet.attachClientTimesheet(clientTimesheet("acme-may.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(
-        MONDAY, Hours.of(7, 30), TUESDAY, Hours.ZERO)));
+    var firstWeek = read("week-19.png", Map.of(MONDAY, Hours.of(7, 30)));
+    var secondWeek = read("week-20.png", Map.of(MONDAY.plusWeeks(1), Hours.of(8), TUESDAY.plusWeeks(1), Hours.ZERO));
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(firstWeek, secondWeek)));
 
     // When
     timesheets.save(timesheet);
 
     // Then
     var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.clientTimesheet().map(ClientTimesheet::document)).contains(clientTimesheet("acme-may.pdf"));
-    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).contains(new ClientReportedHours(Map.of(
-        MONDAY, Hours.of(7, 30), TUESDAY, Hours.ZERO)));
+    assertThat(kept.clientTimesheets().all()).containsExactly(firstWeek, secondWeek);
+    assertThat(kept.day(MONDAY).hours(WORKED)).isEqualTo(Hours.of(7, 30));
   }
 
   @Test
   void keepsAClientsTimesheetWithoutDaysAsRead() {
     // Given
     var timesheet = draft();
-    timesheet.attachClientTimesheet(clientTimesheet("empty.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of()));
+    var empty = read("empty.pdf", Map.of());
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(empty)));
 
     // When
     timesheets.save(timesheet);
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheet().orElseThrow().hoursReportedByClient())
-        .contains(new ClientReportedHours(Map.of()));
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheets().all()).containsExactly(empty);
   }
 
   @Test
-  void keepsThatTheClientsTimesheetCouldNotBeRead() {
+  void keepsThatAClientsTimesheetCouldNotBeRead() {
     // Given
     var timesheet = draft();
-    timesheet.attachClientTimesheet(clientTimesheet("scribbles.png"));
-    timesheet.markClientTimesheetUnreadable();
+    var unreadable = ClientTimesheet.of(clientTimesheet("scribbles.png")).unreadable();
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(unreadable)));
 
     // When
     timesheets.save(timesheet);
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheet().orElseThrow().isUnreadable()).isTrue();
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheets().all()).containsExactly(unreadable);
   }
 
   @Test
   void keepsAClientsTimesheetThatHasNotBeenReadAsUnread() {
     // Given
     var timesheet = draft();
-    timesheet.attachClientTimesheet(clientTimesheet("acme-may.pdf"));
+    var unread = ClientTimesheet.of(clientTimesheet("acme-may.pdf"));
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(unread)));
 
     // When
     timesheets.save(timesheet);
 
     // Then
-    var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
-    assertThat(kept.clientTimesheet().orElseThrow().isUnreadable()).isFalse();
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheets().all()).containsExactly(unread);
   }
 
   @Test
-  void keepsOnlyTheClientsTimesheetThatReplacedTheEarlierOne() {
+  void keepsOnlyTheClientsTimesheetsThatReplacedTheEarlierOnes() {
     // Given
     var timesheet = draft();
-    timesheet.attachClientTimesheet(clientTimesheet("first.pdf"));
-    timesheet.recordHoursReportedByClient(new ClientReportedHours(Map.of(MONDAY, Hours.of(8))));
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(
+        read("first.pdf", Map.of(MONDAY, Hours.of(8))), read("second.pdf", Map.of(TUESDAY, Hours.of(8))))));
     timesheets.save(timesheet);
     var found = timesheets.find(JAN, MAY_2026).orElseThrow();
+    var replacement = read("replacement.pdf", Map.of(MONDAY, Hours.of(6)));
 
     // When
-    found.attachClientTimesheet(clientTimesheet("second.pdf"));
+    found.importClientTimesheets(ClientTimesheets.of(List.of(replacement)));
     timesheets.save(found);
 
     // Then
     var kept = timesheets.find(JAN, MAY_2026).orElseThrow();
-    assertThat(kept.clientTimesheet().map(ClientTimesheet::document)).contains(clientTimesheet("second.pdf"));
-    assertThat(kept.clientTimesheet().orElseThrow().hoursReportedByClient()).isEmpty();
+    assertThat(kept.clientTimesheets().all()).containsExactly(replacement);
+    assertThat(kept.day(MONDAY).hours(WORKED)).isEqualTo(Hours.of(6));
+  }
+
+  @Test
+  void keepsTheClientsTimesheetsWhenTheDaysChange() {
+    // Given
+    var timesheet = draft();
+    var week = read("week-19.png", Map.of(MONDAY, Hours.of(8)));
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(week)));
+    timesheets.save(timesheet);
+    var found = timesheets.find(JAN, MAY_2026).orElseThrow();
+
+    // When
+    found.bookHours(TUESDAY, LEAVE, Hours.of(8));
+    timesheets.save(found);
+
+    // Then
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().clientTimesheets().all()).containsExactly(week);
+  }
+
+  private static ClientTimesheet read(String fileName, Map<LocalDate, Hours> hoursWorked) {
+    return ClientTimesheet.of(clientTimesheet(fileName)).readAs(new ClientReportedHours(hoursWorked));
   }
 
   @Test

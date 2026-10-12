@@ -91,6 +91,14 @@ public final class DayEntry {
     return !isWeekend() && !workdayHours().equals(STANDARD_WORKDAY);
   }
 
+  /**
+   * Whether the hours can be booked in the category, instead of the hours booked there now, without exceeding 24
+   * hours on the day.
+   */
+  boolean canBook(HourCategory category, Hours newHours) {
+    return !totalHours().minus(hours(category)).plus(newHours).isGreaterThan(MAXIMUM_DAILY_HOURS);
+  }
+
   public Kilometres kilometres() {
     return kilometres;
   }

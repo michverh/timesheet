@@ -3,6 +3,8 @@ package eu.openvalue.timesheet.adapter.in.web;
 import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
+import eu.openvalue.timesheet.domain.HourCategory;
+import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
@@ -25,11 +27,15 @@ class WebTestConfiguration {
   static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
 
   /**
-   * Jan's prefilled draft for May 2026, assigned to ACME.
+   * Jan's draft for May 2026, assigned to ACME, prefilled and with 8 hours worked on every other weekday.
    */
   static Timesheet draft() {
-    return new TimesheetPrefill(new DutchPublicHolidays())
+    var draft = new TimesheetPrefill(new DutchPublicHolidays())
         .prefill(MAY_2026, JAN, Optional.of(Assignment.at(new Client("ACME"), new Project("Platform"))));
+    draft.days().stream()
+        .filter(day -> !day.isWeekend() && day.bookedHours().isEmpty())
+        .forEach(day -> draft.bookHours(day.date(), HourCategory.WORKED, Hours.of(8)));
+    return draft;
   }
 
   @Bean

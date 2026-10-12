@@ -8,10 +8,11 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetCommand;
-import eu.openvalue.timesheet.application.port.in.AttachClientTimesheetUseCase;
+import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsCommand;
+import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsUseCase;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.DocumentFormat;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -33,62 +34,72 @@ class ClientTimesheetControllerTest {
   private MockMvcTester mvc;
 
   @MockitoBean
-  private AttachClientTimesheetUseCase attach;
+  private ImportClientTimesheetsUseCase importing;
 
   @Test
-  void handsTheUploadedFileInAsTheClientsTimesheetAndLetsThePageReload() {
+  void importsTheUploadedFilesAsTheClientsTimesheetsAndLetsThePageReload() {
     // When
-    var response = upload(new MockMultipartFile("file", "acme-may.pdf", "application/pdf", CONTENT));
+    var response = upload(
+        new MockMultipartFile("files", "week-19.png", "image/png", CONTENT),
+        new MockMultipartFile("files", "week-20.pdf", "application/pdf", CONTENT));
 
     // Then
     assertThat(response).hasStatus(HttpStatus.NO_CONTENT).hasHeader("HX-Refresh", "true");
-    verify(attach).attach(new AttachClientTimesheetCommand(JAN, MAY_2026,
-        new ClientTimesheetDocument("acme-may.pdf", DocumentFormat.PDF, CONTENT)));
+    verify(importing).importClientTimesheets(new ImportClientTimesheetsCommand(JAN, MAY_2026, List.of(
+        new ClientTimesheetDocument("week-19.png", DocumentFormat.PNG, CONTENT),
+        new ClientTimesheetDocument("week-20.pdf", DocumentFormat.PDF, CONTENT))));
   }
 
   @Test
   void keepsOnlyTheNameOfAFileUploadedWithItsPath() {
     // When
-    upload(new MockMultipartFile("file", "C:\\Users\\jan\\acme-may.png", "image/png", CONTENT));
+    upload(new MockMultipartFile("files", "C:\\Users\\jan\\acme-may.png", "image/png", CONTENT));
 
     // Then
-    verify(attach).attach(new AttachClientTimesheetCommand(JAN, MAY_2026,
-        new ClientTimesheetDocument("acme-may.png", DocumentFormat.PNG, CONTENT)));
+    verify(importing).importClientTimesheets(new ImportClientTimesheetsCommand(JAN, MAY_2026,
+        List.of(new ClientTimesheetDocument("acme-may.png", DocumentFormat.PNG, CONTENT))));
   }
 
   @Test
   void rejectsAnEmptyFile() {
     // When
-    var response = upload(new MockMultipartFile("file", "acme-may.pdf", "application/pdf", new byte[0]));
+    var response = upload(
+        new MockMultipartFile("files", "week-19.png", "image/png", CONTENT),
+        new MockMultipartFile("files", "week-20.pdf", "application/pdf", new byte[0]));
 
     // Then
-    assertThat(response).hasStatus(HttpStatus.BAD_REQUEST).bodyText().contains("empty");
-    verify(attach, never()).attach(any());
+    assertThat(response).hasStatus(HttpStatus.BAD_REQUEST).bodyText().contains("week-20.pdf is empty");
+    verify(importing, never()).importClientTimesheets(any());
   }
 
   @Test
   void rejectsAFileOfAnotherFormat() {
     // When
-    var response = upload(new MockMultipartFile("file", "acme-may.docx", "application/msword", CONTENT));
+    var response = upload(new MockMultipartFile("files", "acme-may.docx", "application/msword", CONTENT));
 
     // Then
-    assertThat(response).hasStatus(HttpStatus.BAD_REQUEST).bodyText().contains("PNG, JPG, PDF or XLSX");
-    verify(attach, never()).attach(any());
+    assertThat(response).hasStatus(HttpStatus.BAD_REQUEST).bodyText()
+        .contains("acme-may.docx as a PNG, JPG, PDF or XLSX");
+    verify(importing, never()).importClientTimesheets(any());
   }
 
   @Test
   void explainsTheLimitOfAFileThatIsTooLarge() {
     // Given
-    doThrow(new MaxUploadSizeExceededException(10 * 1024 * 1024)).when(attach).attach(any());
+    doThrow(new MaxUploadSizeExceededException(10 * 1024 * 1024)).when(importing).importClientTimesheets(any());
 
     // When
-    var response = upload(new MockMultipartFile("file", "huge.pdf", "application/pdf", CONTENT));
+    var response = upload(new MockMultipartFile("files", "huge.pdf", "application/pdf", CONTENT));
 
     // Then
     assertThat(response).hasStatus(HttpStatus.CONTENT_TOO_LARGE).bodyText().contains("at most 10 MB");
   }
 
-  private MvcTestResult upload(MockMultipartFile file) {
-    return mvc.post().uri("/timesheets/2026-05/client-timesheet").multipart().file(file).exchange();
+  private MvcTestResult upload(MockMultipartFile... files) {
+    var request = mvc.post().uri("/timesheets/2026-05/client-timesheet").multipart();
+    for (var file : files) {
+      request = request.file(file);
+    }
+    return request.exchange();
   }
 }

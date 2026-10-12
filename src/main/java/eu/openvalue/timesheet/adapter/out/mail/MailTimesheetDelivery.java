@@ -3,6 +3,7 @@ package eu.openvalue.timesheet.adapter.out.mail;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetDeliveryFailedException;
 import eu.openvalue.timesheet.application.port.out.TimesheetSubmission;
+import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.time.LocalDate;
@@ -48,7 +49,7 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
     helper.setSubject(subjectOf(submission));
     helper.setText(bodyOf(submission));
     attachSpreadsheet(helper, submission);
-    attachClientTimesheet(helper, submission);
+    attachClientTimesheets(helper, submission);
     return message;
   }
 
@@ -70,14 +71,12 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
         spreadsheet.mediaType());
   }
 
-  private static void attachClientTimesheet(MimeMessageHelper helper, TimesheetSubmission submission)
+  private static void attachClientTimesheets(MimeMessageHelper helper, TimesheetSubmission submission)
       throws MessagingException {
-    if (submission.clientTimesheet().isEmpty()) {
-      return;
+    for (var document : submission.clientTimesheets()) {
+      helper.addAttachment(document.fileName(), new ByteArrayResource(document.content()),
+          document.format().mediaType());
     }
-    var document = submission.clientTimesheet().get();
-    helper.addAttachment(document.fileName(), new ByteArrayResource(document.content()),
-        document.format().mediaType());
   }
 
   private static String subjectOf(TimesheetSubmission submission) {
@@ -99,9 +98,13 @@ public final class MailTimesheetDelivery implements TimesheetDelivery {
   }
 
   private static String clientTimesheetNoteOf(TimesheetSubmission submission) {
-    return submission.clientTimesheet()
-        .map(document -> " The client's own timesheet is attached as %s.".formatted(document.fileName()))
-        .orElse("");
+    var fileNames = submission.clientTimesheets().stream().map(ClientTimesheetDocument::fileName).toList();
+    return switch (fileNames.size()) {
+      case 0 -> "";
+      case 1 -> " The client's own timesheet is attached as %s.".formatted(fileNames.getFirst());
+      default -> " The client's own timesheets are attached as %s and %s.".formatted(
+          String.join(", ", fileNames.subList(0, fileNames.size() - 1)), fileNames.getLast());
+    };
   }
 
   private static String introductionOf(TimesheetSubmission submission) {

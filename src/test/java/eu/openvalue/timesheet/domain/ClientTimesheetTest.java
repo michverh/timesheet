@@ -15,23 +15,23 @@ class ClientTimesheetTest {
       new ClientTimesheetDocument("acme-july.pdf", DocumentFormat.PDF, new byte[] {1, 2, 3});
   private static final ClientReportedHours REPORTED = new ClientReportedHours(Map.of(JULY_1, Hours.of(7)));
 
-  private final ClientTimesheet handedIn = ClientTimesheet.handedIn(DOCUMENT);
+  private final ClientTimesheet uploaded = ClientTimesheet.of(DOCUMENT);
 
   @Test
-  void hasNotBeenReadWhenHandedIn() {
-    assertThat(handedIn.hoursReportedByClient()).isEmpty();
-    assertThat(handedIn.isUnreadable()).isFalse();
+  void hasNotBeenReadWhenUploaded() {
+    assertThat(uploaded.hoursReportedByClient()).isEmpty();
+    assertThat(uploaded.isUnreadable()).isFalse();
   }
 
   @Test
   void givesTheHoursWorkedOnceRead() {
-    assertThat(handedIn.readAs(REPORTED).hoursReportedByClient()).contains(REPORTED);
+    assertThat(uploaded.readAs(REPORTED).hoursReportedByClient()).contains(REPORTED);
   }
 
   @Test
   void hasNoHoursWorkedWhenUnreadable() {
     // When
-    var unreadable = handedIn.readAs(REPORTED).unreadable();
+    var unreadable = uploaded.readAs(REPORTED).unreadable();
 
     // Then
     assertThat(unreadable.isUnreadable()).isTrue();
@@ -40,31 +40,31 @@ class ClientTimesheetTest {
 
   @Test
   void isNoLongerUnreadableOnceRead() {
-    assertThat(handedIn.unreadable().readAs(REPORTED).isUnreadable()).isFalse();
+    assertThat(uploaded.unreadable().readAs(REPORTED).isUnreadable()).isFalse();
   }
 
   @Test
   void keepsTheDocumentWhateverWasRead() {
-    assertThat(handedIn.readAs(REPORTED).document()).isEqualTo(DOCUMENT);
+    assertThat(uploaded.readAs(REPORTED).document()).isEqualTo(DOCUMENT);
   }
 
   @Test
   void concernsAnotherPeriodWhenItCoversNoDayOfTheMonth() {
-    assertThat(handedIn.readAs(REPORTED).isOfAnotherPeriodThan(YearMonth.of(2026, 10))).isTrue();
+    assertThat(uploaded.readAs(REPORTED).isOfAnotherPeriodThan(YearMonth.of(2026, 10))).isTrue();
   }
 
   @Test
   void concernsTheMonthWhenItCoversOneOfItsDays() {
-    assertThat(handedIn.readAs(REPORTED).isOfAnotherPeriodThan(JULY_2026)).isFalse();
+    assertThat(uploaded.readAs(REPORTED).isOfAnotherPeriodThan(JULY_2026)).isFalse();
   }
 
   @Test
   void concernsNoOtherPeriodBeforeItIsRead() {
-    assertThat(handedIn.isOfAnotherPeriodThan(YearMonth.of(2026, 10))).isFalse();
+    assertThat(uploaded.isOfAnotherPeriodThan(YearMonth.of(2026, 10))).isFalse();
   }
 
   @Test
   void equalsAClientTimesheetWithTheSameDocumentAndReading() {
-    assertThat(handedIn.readAs(REPORTED)).isEqualTo(ClientTimesheet.handedIn(DOCUMENT).readAs(REPORTED));
+    assertThat(uploaded.readAs(REPORTED)).isEqualTo(ClientTimesheet.of(DOCUMENT).readAs(REPORTED));
   }
 }
