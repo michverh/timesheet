@@ -195,6 +195,17 @@
     banner.textContent = event.detail.xhr.responseText || 'Something went wrong. Please reload the page.';
     banner.hidden = false;
   });
+
+  // A day row saves itself on every change and is replaced by the answer. When the row was edited further while
+  // saving, the answer is outdated: keep what is being typed, the save of the newer edit answers instead.
+  document.addEventListener('htmx:beforeSwap', event => {
+    const row = event.detail.target;
+    if (!row.matches('tr[id^="day-"]')) return;
+    const sent = event.detail.requestConfig.formData;
+    const editedWhileSaving = [...row.querySelectorAll('input[name]')]
+        .some(input => input.value !== (sent.get(input.name) ?? ''));
+    if (editedWhileSaving) event.detail.shouldSwap = false;
+  });
 </script>
 </body>
 </html>
