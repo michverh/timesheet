@@ -335,4 +335,19 @@ class JpaTimesheetsTest {
       return new JpaTimesheets(repository);
     }
   }
+
+  @Test
+  void keepsWhetherLeaveWasSuggested() {
+    // Given
+    var timesheet = draft();
+    timesheet.importClientTimesheets(ClientTimesheets.of(List.of(read("week-19.png", Map.of(
+        MONDAY, Hours.of(8), TUESDAY, Hours.ZERO, TUESDAY.plusDays(1), Hours.of(8), TUESDAY.plusDays(2), Hours.of(8),
+        TUESDAY.plusDays(3), Hours.of(8))))));
+
+    // When
+    timesheets.save(timesheet);
+
+    // Then
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().daysWithSuggestedLeave()).containsExactly(TUESDAY);
+  }
 }

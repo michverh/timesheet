@@ -1,9 +1,13 @@
 package eu.openvalue.timesheet.domain;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.SortedMap;
@@ -82,10 +86,15 @@ final class MonthOfDays {
   }
 
   /**
-   * The weekdays on which the hours filling the workday add up to more or less than the standard workday.
+   * The weeks of the month, Monday to Sunday, each with only its days within the month.
    */
-  List<DayEntry> daysDeviatingFromStandardWorkday() {
-    return days.values().stream().filter(DayEntry::deviatesFromStandardWorkday).toList();
+  List<WorkWeek> weeks() {
+    var weeks = new LinkedHashMap<LocalDate, List<DayEntry>>();
+    for (var day : days.values()) {
+      var monday = day.date().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+      weeks.computeIfAbsent(monday, week -> new ArrayList<>()).add(day);
+    }
+    return weeks.values().stream().map(WorkWeek::new).toList();
   }
 
   /**

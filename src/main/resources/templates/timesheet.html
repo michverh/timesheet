@@ -51,10 +51,22 @@
 
   <section th:fragment="workday-deviations" id="workday-deviations" class="banner warning" aria-live="polite"
            th:hx-swap-oob="${oob} ? 'true'"
-           th:hidden="${page.daysDeviatingFromStandardWorkday.isEmpty() or page.submitted}">
-    <p>These weekdays do not add up to 8 hours, not counting overtime and stand-by:</p>
+           th:hidden="${page.weeksDeviatingFromStandardWorkWeek.isEmpty() or page.submitted}">
+    <p>These weeks do not add up to 8 hours per weekday, not counting overtime and stand-by:</p>
     <ul>
-      <li th:each="day : ${page.daysDeviatingFromStandardWorkday}" th:text="${day}">Monday 4 May: 7:30 instead of 8</li>
+      <li th:each="week : ${page.weeksDeviatingFromStandardWorkWeek}" th:text="${week}">
+        Week 19 (4 – 10 May 2026): 38 instead of 40
+      </li>
+    </ul>
+  </section>
+
+  <section th:fragment="suggested-leave" id="suggested-leave" class="banner info" aria-live="polite"
+           th:hx-swap-oob="${oob} ? 'true'"
+           th:hidden="${page.daysWithSuggestedLeave.isEmpty() or page.submitted}">
+    <p>Leave was filled in for the hours that were not worked on these days. Check it; changing a day marks it as
+      checked.</p>
+    <ul>
+      <li th:each="day : ${page.daysWithSuggestedLeave}" th:text="${day}">Wednesday 5 August</li>
     </ul>
   </section>
 

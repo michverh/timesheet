@@ -42,6 +42,9 @@ class TimesheetDayEntity {
 
   private String explanation;
 
+  @Column(nullable = false)
+  private boolean leaveSuggested;
+
   @ElementCollection
   @CollectionTable(name = "timesheet_day_hours", joinColumns = @JoinColumn(name = "timesheet_day_id"))
   @MapKeyColumn(name = "category")
@@ -63,6 +66,7 @@ class TimesheetDayEntity {
   void copy(DayEntry day) {
     kilometres = day.kilometres().value();
     explanation = day.explanation().map(Explanation::text).orElse(null);
+    leaveSuggested = day.isLeaveSuggested();
     var minutes = new EnumMap<HourCategory, Integer>(HourCategory.class);
     day.bookedHours().forEach((category, hours) -> minutes.put(category, hours.inMinutes()));
     if (!minutesPerCategory.equals(minutes)) {
@@ -74,6 +78,7 @@ class TimesheetDayEntity {
   DayEntry restore() {
     var hours = new EnumMap<HourCategory, Hours>(HourCategory.class);
     minutesPerCategory.forEach((category, minutes) -> hours.put(category, Hours.ofMinutes(minutes)));
-    return DayEntry.of(date, hours, Kilometres.of(kilometres), Optional.ofNullable(explanation).map(Explanation::new));
+    return DayEntry.of(date, hours, Kilometres.of(kilometres), Optional.ofNullable(explanation).map(Explanation::new),
+        leaveSuggested);
   }
 }

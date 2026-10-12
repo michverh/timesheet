@@ -247,7 +247,7 @@ class TimesheetPageControllerTest {
   }
 
   @Test
-  void pointsOutWeekdaysThatDoNotAddUpToAStandardWorkday() {
+  void pointsOutWeeksThatDoNotAddUpToAStandardWorkWeek() {
     // Given
     var draft = draft();
     draft.rebookDay(LocalDate.of(2026, 5, 4), Map.of(WORKED, Hours.of(7, 30), OVERTIME, Hours.of(1)));
@@ -258,10 +258,46 @@ class TimesheetPageControllerTest {
 
     // Then
     assertThat(response).hasStatusOk().bodyText()
-        .contains("These weekdays do not add up to 8 hours", "Monday 4 May: 7:30 instead of 8")
+        .contains("These weeks do not add up to 8 hours per weekday", "Week 19 (4 – 10 May 2026): 39:30 instead of 40")
         .containsPattern("id=\"day-2026-05-04\"[^>]*class=\"off-workday \"")
         .containsPattern("title=\"Adds up to 7:30 instead of 8 hours\">7:30</span>")
         .doesNotContainPattern("id=\"day-2026-05-05\"[^>]*class=\"off-workday");
+  }
+
+  @Test
+  void acceptsAWeekWhoseHoursAreSpreadUnevenly() {
+    // Given
+    var draft = draft();
+    draft.rebookDay(LocalDate.of(2026, 5, 4), Map.of(WORKED, Hours.of(10)));
+    draft.rebookDay(LocalDate.of(2026, 5, 5), Map.of(WORKED, Hours.of(6)));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .doesNotContain("Week 19 (")
+        .doesNotContainPattern("id=\"day-2026-05-04\"[^>]*class=\"off-workday");
+  }
+
+  @Test
+  void marksTheLeaveSuggestedForHoursNotWorked() {
+    // Given
+    var draft = draft();
+    importAll(draft, read("week-19.png", Map.of(LocalDate.of(2026, 5, 4), Hours.of(8),
+        LocalDate.of(2026, 5, 5), Hours.of(8), LocalDate.of(2026, 5, 6), Hours.ZERO,
+        LocalDate.of(2026, 5, 7), Hours.of(8), LocalDate.of(2026, 5, 8), Hours.of(8))));
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft);
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("Leave was filled in for the hours that were not worked on these days", "<li>Wednesday 6 May</li>")
+        .containsPattern("class=\"hours suggested\"[^>]*title=\"Filled in for hours not worked\"\\s+"
+            + "id=\"2026-05-06-LEAVE\"[^>]*value=\"8\"");
   }
 
   @Test

@@ -111,6 +111,10 @@ public final class Hours implements Comparable<Hours> {
   /**
    * @throws IllegalArgumentException when the other hours exceed these
    */
+  public static Hours min(Hours some, Hours other) {
+    return some.compareTo(other) <= 0 ? some : other;
+  }
+
   public Hours minus(Hours other) {
     return new Hours(minutes - other.minutes);
   }

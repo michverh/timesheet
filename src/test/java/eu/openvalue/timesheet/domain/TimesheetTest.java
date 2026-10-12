@@ -21,6 +21,7 @@ class TimesheetTest {
 
   private static final YearMonth FEBRUARY_2028 = YearMonth.of(2028, 2);
   private static final LocalDate A_DAY = LocalDate.of(2028, 2, 10);
+  private static final LocalDate MONDAY_7 = LocalDate.of(2028, 2, 7);
   private static final LocalDate FIRST_SUBMISSION = LocalDate.of(2028, 3, 1);
   private static final LocalDate SUBMISSION = LocalDate.of(2028, 3, 4);
   private static final Professional PROFESSIONAL = Professional.withEmail("jan.jansen@openvalue.nl");
@@ -581,17 +582,174 @@ class TimesheetTest {
   }
 
   @Test
-  void listsTheWeekdaysThatDeviateFromTheStandardWorkday() {
+  void listsTheWeeksThatDoNotAddUpToAStandardWorkWeek() {
     // Given
-    var prefilled = new TimesheetPrefill(new DutchPublicHolidays())
-        .prefill(FEBRUARY_2028, PROFESSIONAL, Optional.empty());
+    book(MONDAY_7, 8, 8, 8, 7, 8);
 
     // When
-    prefilled.bookHours(A_DAY, WORKED, Hours.of(7));
-    prefilled.bookHours(A_DAY.plusDays(1), OVERTIME, Hours.of(2));
+    var deviating = timesheet.weeksDeviatingFromStandardWorkWeek();
 
     // Then
-    assertThat(prefilled.daysDeviatingFromStandardWorkday()).extracting(DayEntry::date).containsExactly(A_DAY);
+    assertThat(deviating).filteredOn(week -> week.firstDay().equals(MONDAY_7))
+        .singleElement()
+        .satisfies(week -> assertThat(week.bookedHours()).isEqualTo(Hours.of(39)));
+  }
+
+  @Test
+  void acceptsAWeekWhoseHoursAreSpreadUnevenlyOverItsDays() {
+    // Given
+    book(MONDAY_7, 10, 6, 8, 8, 8);
+
+    // When / Then
+    assertThat(timesheet.weeksDeviatingFromStandardWorkWeek()).extracting(WorkWeek::firstDay)
+        .doesNotContain(MONDAY_7);
+  }
+
+  @Test
+  void suggestsLeaveForTheHoursNotWorkedOnDaysTheClientsTimesheetsReport() {
+    // When
+    importWeek6(8, 8, 0, 8, 8);
+
+    // Then
+    assertThat(timesheet.day(MONDAY_7.plusDays(2)).hours(LEAVE)).isEqualTo(Hours.of(8));
+    assertThat(timesheet.daysWithSuggestedLeave()).containsExactly(MONDAY_7.plusDays(2));
+  }
+
+  @Test
+  void suggestsNoLeaveWhenTheWeekIsFull() {
+    // When
+    importWeek6(10, 6, 8, 8, 8);
+
+    // Then
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void suggestsNoMoreLeaveThanTheWeekIsShort() {
+    // When
+    importWeek6(10, 4, 8, 8, 8);
+
+    // Then
+    assertThat(timesheet.day(MONDAY_7.plusDays(1)).hours(LEAVE)).isEqualTo(Hours.of(2));
+  }
+
+  @Test
+  void suggestsNoLeaveOnDaysTheClientsTimesheetsDoNotReport() {
+    // When
+    importAll(read("week-6.png", Map.of(MONDAY_7, Hours.of(8), MONDAY_7.plusDays(1), Hours.of(8))));
+
+    // Then
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void suggestsNoLeaveOnDaysTheClientsTimesheetsDisagreeAbout() {
+    // When
+    importAll(read("week-6.png", Map.of(MONDAY_7, Hours.of(0))), read("week-6b.png", Map.of(MONDAY_7, Hours.of(4))));
+
+    // Then
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void suggestsNoLeaveOnPublicHolidays() {
+    // Given: Ascension Day on Thursday 14 May 2026
+    var may = new TimesheetPrefill(new DutchPublicHolidays())
+        .prefill(YearMonth.of(2026, 5), PROFESSIONAL, Optional.of(Assignment.at(new Client("ACME"))));
+    var reported = new HashMap<LocalDate, Hours>();
+    LocalDate.of(2026, 5, 11).datesUntil(LocalDate.of(2026, 5, 16)).forEach(date -> reported.put(date, Hours.of(8)));
+    reported.put(LocalDate.of(2026, 5, 14), Hours.ZERO);
+
+    // When
+    may.importClientTimesheets(ClientTimesheets.of(List.of(read("week-20.png", reported))));
+
+    // Then
+    assertThat(may.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void suggestsNoLeaveOnDaysWithLeaveBookedByTheProfessional() {
+    // Given
+    timesheet.rebookDay(MONDAY_7.plusDays(2), Map.of(LEAVE, Hours.of(4)));
+
+    // When
+    importWeek6(8, 8, 0, 8, 8);
+
+    // Then
+    assertThat(timesheet.day(MONDAY_7.plusDays(2)).hours(LEAVE)).isEqualTo(Hours.of(4));
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void confirmsTheSuggestedLeaveOnceTheDayIsChanged() {
+    // Given
+    importWeek6(8, 8, 0, 8, 8);
+
+    // When
+    timesheet.rebookDay(MONDAY_7.plusDays(2), Map.of(LEAVE, Hours.of(8)));
+
+    // Then
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void replacesUnconfirmedSuggestedLeaveWhenImportingAgain() {
+    // Given
+    importWeek6(8, 8, 0, 8, 8);
+
+    // When
+    importWeek6(8, 8, 8, 8, 8);
+
+    // Then
+    assertThat(timesheet.day(MONDAY_7.plusDays(2)).hours(LEAVE)).isEqualTo(Hours.ZERO);
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void keepsConfirmedLeaveWhenImportingAgain() {
+    // Given
+    importWeek6(8, 8, 0, 8, 8);
+    timesheet.rebookDay(MONDAY_7.plusDays(2), Map.of(LEAVE, Hours.of(8)));
+
+    // When
+    importWeek6(8, 8, 0, 8, 8);
+
+    // Then
+    assertThat(timesheet.day(MONDAY_7.plusDays(2)).hours(LEAVE)).isEqualTo(Hours.of(8));
+    assertThat(timesheet.daysWithSuggestedLeave()).isEmpty();
+  }
+
+  @Test
+  void suggestsLeaveAgainWhenRestarted() {
+    // Given
+    importWeek6(8, 8, 0, 8, 8);
+    timesheet.rebookDay(MONDAY_7.plusDays(2), Map.of(OTHER, Hours.of(8)));
+
+    // When
+    timesheet.restartFrom(Timesheet.start(FEBRUARY_2028, PROFESSIONAL, Optional.empty()));
+
+    // Then
+    assertThat(timesheet.daysWithSuggestedLeave()).containsExactly(MONDAY_7.plusDays(2));
+  }
+
+  /**
+   * Books hours worked from Monday to Friday of the week starting on the given Monday.
+   */
+  private void book(LocalDate monday, int... hoursWorked) {
+    for (var i = 0; i < hoursWorked.length; i++) {
+      timesheet.bookHours(monday.plusDays(i), WORKED, Hours.of(hoursWorked[i]));
+    }
+  }
+
+  /**
+   * Imports a client's timesheet reporting hours worked from Monday 7 to Friday 11 February 2028.
+   */
+  private void importWeek6(int... hoursWorked) {
+    var reported = new HashMap<LocalDate, Hours>();
+    for (var i = 0; i < hoursWorked.length; i++) {
+      reported.put(MONDAY_7.plusDays(i), Hours.of(hoursWorked[i]));
+    }
+    importAll(read("week-6.png", reported));
   }
 
 }

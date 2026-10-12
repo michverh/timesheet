@@ -80,4 +80,70 @@ class DayEntryTest {
 
     assertThat(saturday.deviatesFromStandardWorkday()).isFalse();
   }
+
+  @Test
+  void hasNoSuggestedLeaveUnlessRestoredSo() {
+    var day = DayEntry.of(A_DAY, Map.of(LEAVE, Hours.of(8)), Kilometres.ZERO, Optional.empty());
+
+    assertThat(day.isLeaveSuggested()).isFalse();
+  }
+
+  @Test
+  void canBeRestoredWithSuggestedLeave() {
+    var day = DayEntry.of(A_DAY, Map.of(LEAVE, Hours.of(8)), Kilometres.ZERO, Optional.empty(), true);
+
+    assertThat(day.isLeaveSuggested()).isTrue();
+  }
+
+  @Test
+  void cannotHaveSuggestedLeaveWithoutLeave() {
+    var day = DayEntry.of(A_DAY, Map.of(WORKED, Hours.of(8)), Kilometres.ZERO, Optional.empty(), true);
+
+    assertThat(day.isLeaveSuggested()).isFalse();
+  }
+
+  @Test
+  void bookingSuggestedLeaveMarksItAsSuch() {
+    // When
+    var day = DayEntry.empty(A_DAY).withHours(WORKED, Hours.of(6)).withSuggestedLeave(Hours.of(2));
+
+    // Then
+    assertThat(day.bookedHours()).isEqualTo(Map.of(WORKED, Hours.of(6), LEAVE, Hours.of(2)));
+    assertThat(day.isLeaveSuggested()).isTrue();
+  }
+
+  @Test
+  void withdrawsSuggestedLeaveThatWasNotConfirmed() {
+    // Given
+    var day = DayEntry.empty(A_DAY).withSuggestedLeave(Hours.of(8));
+
+    // When
+    var withdrawn = day.withoutSuggestedLeave();
+
+    // Then
+    assertThat(withdrawn.bookedHours()).isEmpty();
+    assertThat(withdrawn.isLeaveSuggested()).isFalse();
+  }
+
+  @Test
+  void keepsConfirmedLeave() {
+    // Given
+    var day = DayEntry.empty(A_DAY).withSuggestedLeave(Hours.of(8)).confirmed();
+
+    // When / Then
+    assertThat(day.withoutSuggestedLeave().hours(LEAVE)).isEqualTo(Hours.of(8));
+  }
+
+  @Test
+  void isShortOfTheHoursMissingFromAStandardWorkday() {
+    var day = DayEntry.of(A_DAY, Map.of(WORKED, Hours.of(5), OVERTIME, Hours.of(3)), Kilometres.ZERO,
+        Optional.empty());
+
+    assertThat(day.shortOfStandardWorkday()).isEqualTo(Hours.of(3));
+  }
+
+  @Test
+  void isShortOfNothingInTheWeekend() {
+    assertThat(DayEntry.empty(LocalDate.of(2028, 2, 12)).shortOfStandardWorkday()).isEqualTo(Hours.ZERO);
+  }
 }

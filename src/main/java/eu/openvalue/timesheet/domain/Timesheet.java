@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A professional's monthly account of hours, kilometres and explanations, with exactly one entry for every day of
@@ -98,12 +99,13 @@ public final class Timesheet {
   }
 
   /**
-   * Replaces all hours booked on a day at once. Categories that are absent or zero are cleared.
+   * Replaces all hours booked on a day at once. Categories that are absent or zero are cleared. This confirms any leave
+   * filled in on the day.
    *
    * @throws DailyHoursLimitExceededException when the day's total would exceed 24 hours
    */
   public void rebookDay(LocalDate date, Map<HourCategory, Hours> hours) {
-    update(day(date).withBookedHours(Objects.requireNonNull(hours, "hours")));
+    update(day(date).withBookedHours(Objects.requireNonNull(hours, "hours")).confirmed());
   }
 
   public void recordKilometres(LocalDate date, Kilometres kilometres) {
@@ -127,10 +129,19 @@ public final class Timesheet {
   }
 
   /**
-   * The weekdays on which the hours filling the workday add up to more or less than the standard workday.
+   * The weeks in which the hours filling the workday add up to more or less than a standard workday for each of its
+   * weekdays, however they are spread over the days.
    */
-  public List<DayEntry> daysDeviatingFromStandardWorkday() {
-    return days.daysDeviatingFromStandardWorkday();
+  public List<WorkWeek> weeksDeviatingFromStandardWorkWeek() {
+    return days.weeks().stream().filter(WorkWeek::deviatesFromStandardWorkWeek).toList();
+  }
+
+  /**
+   * The days with leave filled in for hours that were expected, but not worked, which the professional has yet to
+   * confirm.
+   */
+  public List<LocalDate> daysWithSuggestedLeave() {
+    return days().stream().filter(DayEntry::isLeaveSuggested).map(DayEntry::date).toList();
   }
 
   /**
@@ -150,7 +161,7 @@ public final class Timesheet {
     Objects.requireNonNull(imported, "imported");
     requireDraft();
     clientTimesheets = imported;
-    bookHoursWorkedAsReportedByClient();
+    bookAsReportedByClient();
   }
 
   public ClientTimesheets clientTimesheets() {
@@ -212,7 +223,7 @@ public final class Timesheet {
     }
     assignment = prepared.assignment;
     days = prepared.days;
-    bookHoursWorkedAsReportedByClient();
+    bookAsReportedByClient();
   }
 
   /**
@@ -277,15 +288,37 @@ public final class Timesheet {
   }
 
   /**
-   * Books the hours worked that the client's timesheets agree on, except where the day would exceed 24 hours.
+   * Books the hours worked that the client's timesheets agree on, and fills in leave for the hours that were expected,
+   * but not worked, replacing leave filled in before that was not confirmed.
    */
-  private void bookHoursWorkedAsReportedByClient() {
-    clientTimesheets.hoursWorkedIn(month()).forEach((date, hours) -> {
+  private void bookAsReportedByClient() {
+    days.all().forEach(day -> days = days.with(day.withoutSuggestedLeave()));
+    var reported = clientTimesheets.hoursWorkedIn(month());
+    reported.forEach((date, hours) -> {
       var day = day(date);
       if (day.canBook(HourCategory.WORKED, hours)) {
         days = days.with(day.withHours(HourCategory.WORKED, hours));
       }
     });
+    days.weeks().forEach(week -> suggestLeaveForHoursNotWorked(week, reported.keySet()));
+  }
+
+  /**
+   * Fills in leave on the weekdays of the week that are short of a standard workday, as far as the week is short of a
+   * standard work week. Only on days the client's timesheets report on, which are no public holiday and have no
+   * leave yet: on other days, the reason for the missing hours is not known.
+   */
+  private void suggestLeaveForHoursNotWorked(WorkWeek week, Set<LocalDate> reported) {
+    var remaining = week.shortfall();
+    for (var day : week.days()) {
+      var leave = Hours.min(day.shortOfStandardWorkday(), remaining);
+      var suggestible = reported.contains(day.date()) && day.hours(HourCategory.PUBLIC_HOLIDAY).isZero()
+          && day.hours(HourCategory.LEAVE).isZero() && day.canBook(HourCategory.LEAVE, leave);
+      if (suggestible && !leave.isZero()) {
+        days = days.with(day.withSuggestedLeave(leave));
+        remaining = remaining.minus(leave);
+      }
+    }
   }
 
   private void update(DayEntry entry) {

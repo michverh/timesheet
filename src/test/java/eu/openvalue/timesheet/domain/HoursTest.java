@@ -116,4 +116,9 @@ class HoursTest {
   void printsAsHoursAndMinutes() {
     assertThat(Hours.of(7, 5)).hasToString("7:05");
   }
+
+  @Test
+  void picksTheFewerOfTwo() {
+    assertThat(Hours.min(Hours.of(7, 30), Hours.of(8))).isEqualTo(Hours.of(7, 30));
+  }
 }

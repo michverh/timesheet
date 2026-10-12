@@ -8,6 +8,7 @@ import eu.openvalue.timesheet.domain.DayEntry;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.Project;
 import eu.openvalue.timesheet.domain.Timesheet;
+import eu.openvalue.timesheet.domain.WorkWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Everything the timesheet page shows of a draft timesheet.
@@ -26,7 +28,7 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     List<String> daysLackingExplanation, Optional<String> submittedOn, Optional<String> previouslySubmittedOn,
     List<ClientTimesheetRow> clientTimesheets, boolean lacksClientTimesheet,
     List<String> daysInDisputeBetweenClientTimesheets, List<String> weekdaysNotCoveredByClientTimesheets,
-    List<String> daysDeviatingFromStandardWorkday) {
+    List<String> weeksDeviatingFromStandardWorkWeek, List<String> daysWithSuggestedLeave) {
 
   private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
   private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH);
@@ -57,12 +59,19 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
         timesheet.lacksClientTimesheet(),
         timesheet.daysInDisputeBetweenClientTimesheets().stream().map(DAY_LABEL::format).toList(),
         timesheet.weekdaysNotCoveredByClientTimesheets().stream().map(DAY_LABEL::format).toList(),
-        timesheet.daysDeviatingFromStandardWorkday().stream().map(TimesheetPage::describe).toList());
+        timesheet.weeksDeviatingFromStandardWorkWeek().stream().map(TimesheetPage::describe).toList(),
+        timesheet.daysWithSuggestedLeave().stream().map(DAY_LABEL::format).toList());
   }
 
   private static List<DayRow> rowsOf(Timesheet timesheet) {
     var asReportedByClient = Set.copyOf(timesheet.daysBookedAsReportedByClient());
-    return timesheet.days().stream().map(day -> DayRow.of(day, asReportedByClient.contains(day.date()))).toList();
+    var inDeviatingWeeks = timesheet.weeksDeviatingFromStandardWorkWeek().stream()
+        .flatMap(week -> week.days().stream())
+        .map(DayEntry::date)
+        .collect(Collectors.toSet());
+    return timesheet.days().stream()
+        .map(day -> DayRow.of(day, asReportedByClient.contains(day.date()), inDeviatingWeeks.contains(day.date())))
+        .toList();
   }
 
   private static ClientTimesheetRow rowOf(ClientTimesheet client, YearMonth month) {
@@ -89,9 +98,9 @@ public record TimesheetPage(String professionalName, String professionalEmail, Y
     return firstLabel.format(first) + " – " + DATE_LABEL.format(last);
   }
 
-  private static String describe(DayEntry day) {
-    return "%s: %s instead of %s".formatted(DAY_LABEL.format(day.date()), HoursFormat.format(day.workdayHours()),
-        HoursFormat.format(DayEntry.STANDARD_WORKDAY));
+  private static String describe(WorkWeek week) {
+    return "Week %d (%s): %s instead of %s".formatted(week.number(), periodBetween(week.firstDay(), week.lastDay()),
+        HoursFormat.format(week.bookedHours()), HoursFormat.format(week.standardHours()));
   }
 
   Optional<DayRow> day(LocalDate date) {

@@ -315,6 +315,11 @@ fieldset.days:disabled input:hover {
   text-underline-offset: 3px;
 }
 
+.timesheet input.suggested {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
 .timesheet input.needs-attention {
   border-color: var(--warning-border);
   background: var(--warning-bg);

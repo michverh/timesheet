@@ -4,6 +4,7 @@ import static eu.openvalue.timesheet.domain.HourCategory.TRAINING;
 import static eu.openvalue.timesheet.domain.HourCategory.WORKED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -134,5 +135,19 @@ class MonthOfDaysTest {
 
     // When / Then
     assertThatThrownBy(() -> MonthOfDays.of(FEBRUARY_2028, entries)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void splitsIntoWeeksFromMondayToSundayWithinTheMonth() {
+    // When: February 2028 starts on a Tuesday and ends on a Tuesday
+    var weeks = days.weeks();
+
+    // Then
+    assertThat(weeks).extracting(WorkWeek::firstDay, WorkWeek::lastDay).containsExactly(
+        tuple(LocalDate.of(2028, 2, 1), LocalDate.of(2028, 2, 6)),
+        tuple(LocalDate.of(2028, 2, 7), LocalDate.of(2028, 2, 13)),
+        tuple(LocalDate.of(2028, 2, 14), LocalDate.of(2028, 2, 20)),
+        tuple(LocalDate.of(2028, 2, 21), LocalDate.of(2028, 2, 27)),
+        tuple(LocalDate.of(2028, 2, 28), LocalDate.of(2028, 2, 29)));
   }
 }

@@ -16,8 +16,10 @@
     </th>
     <td th:each="category : ${categories}">
       <input type="text" class="hours" autocomplete="off"
-             th:classappend="${category.name() == 'WORKED' and row.bookedAsReportedByClient} ? 'from-client'"
-             th:title="${category.name() == 'WORKED' and row.bookedAsReportedByClient} ? 'As on the timesheet of the client'"
+             th:classappend="${category.name() == 'WORKED' and row.bookedAsReportedByClient ? 'from-client'
+                 : category.name() == 'LEAVE' and row.leaveSuggested ? 'suggested' : ''}"
+             th:title="${category.name() == 'WORKED' and row.bookedAsReportedByClient ? 'As on the timesheet of the client'
+                 : category.name() == 'LEAVE' and row.leaveSuggested ? 'Filled in for hours not worked' : null}"
              th:id="|${row.date}-${category}|"
              th:name="|hours-${category}|"
              th:value="${row.hours.get(category)}"

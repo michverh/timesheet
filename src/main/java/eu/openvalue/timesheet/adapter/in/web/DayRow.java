@@ -17,24 +17,26 @@ import java.util.Map;
  * One editable row of the timesheet page.
  *
  * @param bookedAsReportedByClient whether the hours worked are booked as the client's timesheets report them
- * @param workdayHours the hours filling the workday, when they add up to more or less than a standard workday;
- *     otherwise empty
+ * @param leaveSuggested whether the leave on the day was filled in for hours not worked, and is yet to be confirmed
+ * @param workdayHours the hours filling the workday, when they add up to more or less than a standard workday in a
+ *     week that does not add up either; otherwise empty
  * @param error why the last input for this day was rejected, or {@code null}
  */
 public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCategory, String> hours,
     String kilometres, String explanation, boolean lacksExplanation, boolean bookedAsReportedByClient,
-    String workdayHours, String error) {
+    boolean leaveSuggested, String workdayHours, String error) {
 
   private static final DateTimeFormatter LABEL = DateTimeFormatter.ofPattern("EEE d", Locale.ENGLISH);
 
-  static DayRow of(DayEntry day, boolean bookedAsReportedByClient) {
+  static DayRow of(DayEntry day, boolean bookedAsReportedByClient, boolean inDeviatingWeek) {
     var hours = new EnumMap<HourCategory, String>(HourCategory.class);
     for (var category : HourCategory.values()) {
       hours.put(category, format(day.hours(category)));
     }
     return new DayRow(day.date(), LABEL.format(day.date()), day.isWeekend(), hours, format(day.kilometres()),
         day.explanation().map(Explanation::text).orElse(""), day.lacksRequiredExplanation(),
-        bookedAsReportedByClient, day.deviatesFromStandardWorkday() ? HoursFormat.format(day.workdayHours()) : "", null);
+        bookedAsReportedByClient, day.isLeaveSuggested(),
+        inDeviatingWeek && day.deviatesFromStandardWorkday() ? HoursFormat.format(day.workdayHours()) : "", null);
   }
 
   /**
@@ -44,7 +46,7 @@ public record DayRow(LocalDate date, String label, boolean weekend, Map<HourCate
     var dayOfWeek = date.getDayOfWeek();
     var weekend = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     return new DayRow(date, LABEL.format(date), weekend, input.hours(), input.kilometres(), input.explanation(),
-        false, false, "", error);
+        false, false, false, "", error);
   }
 
   public boolean deviatesFromStandardWorkday() {
