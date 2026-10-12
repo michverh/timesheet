@@ -35,15 +35,25 @@ class PreparingTimesheetDraftTest {
   private final FakeTimesheets timesheets = new FakeTimesheets();
 
   private final PreparingTimesheetDraft prepareDraft = new PreparingTimesheetDraft(
-      new TimesheetPrefill(new DutchPublicHolidays()), assignments, timesheets);
+      new CurrentTimesheets(new TimesheetPrefill(new DutchPublicHolidays()), assignments, timesheets), timesheets);
 
   @Test
-  void keepsTheNewDraft() {
+  void keepsNothingForAMonthThatIsOnlyLookedAt() {
     // When
     prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
 
     // Then
-    assertThat(timesheets.find(JAN, MAY_2026)).isPresent();
+    assertThat(timesheets.find(JAN, MAY_2026)).isEmpty();
+  }
+
+  @Test
+  void keepsNothingWhenResettingAMonthNotKeptYet() {
+    // When
+    var reset = prepareDraft.resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(reset.month()).isEqualTo(MAY_2026);
+    assertThat(timesheets.find(JAN, MAY_2026)).isEmpty();
   }
 
   @Test
@@ -133,7 +143,7 @@ class PreparingTimesheetDraftTest {
   @Test
   void resetsTheTimesheetAsChangedConcurrently() {
     // Given
-    prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026));
+    timesheets.save(prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(JAN, MAY_2026)));
     timesheets.changeConcurrently(changed -> changed.bookHours(MONDAY.plusDays(1), WORKED, Hours.of(3)));
 
     // When

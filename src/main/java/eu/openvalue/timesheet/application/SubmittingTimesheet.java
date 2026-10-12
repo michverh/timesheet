@@ -2,7 +2,6 @@ package eu.openvalue.timesheet.application;
 
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetCommand;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.in.TimesheetSubmissionFailedException;
 import eu.openvalue.timesheet.application.port.out.TimesheetChangedConcurrentlyException;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
@@ -21,13 +20,15 @@ import java.util.Objects;
  */
 public final class SubmittingTimesheet implements SubmitTimesheetUseCase {
 
+  private final CurrentTimesheets currentTimesheets;
   private final Timesheets timesheets;
   private final TimesheetSpreadsheet spreadsheet;
   private final TimesheetDelivery delivery;
   private final Clock clock;
 
-  public SubmittingTimesheet(Timesheets timesheets, TimesheetSpreadsheet spreadsheet, TimesheetDelivery delivery,
-      Clock clock) {
+  public SubmittingTimesheet(CurrentTimesheets currentTimesheets, Timesheets timesheets,
+      TimesheetSpreadsheet spreadsheet, TimesheetDelivery delivery, Clock clock) {
+    this.currentTimesheets = Objects.requireNonNull(currentTimesheets, "currentTimesheets");
     this.timesheets = Objects.requireNonNull(timesheets, "timesheets");
     this.spreadsheet = Objects.requireNonNull(spreadsheet, "spreadsheet");
     this.delivery = Objects.requireNonNull(delivery, "delivery");
@@ -38,8 +39,7 @@ public final class SubmittingTimesheet implements SubmitTimesheetUseCase {
   public void submit(SubmitTimesheetCommand command) {
     var professional = command.professional();
     var month = command.month();
-    var draft = timesheets.find(professional, month)
-        .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
+    var draft = currentTimesheets.of(professional, month);
     var today = LocalDate.now(clock);
     draft.ensureSubmittableOn(today);
 

@@ -56,6 +56,10 @@ timesheet:
   # The professional using the application, until users log in.
   professional:
     email: jan.jansen@openvalue.nl
+  # The employment of the professional, until HR maintains it in the application; the holiday leave of the year of
+  # joining is in proportion to the days employed.
+  employment:
+    start-date: 2020-01-01
   assignment:
     # Leave the client empty when on the bench.
     client: Example Client

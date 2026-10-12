@@ -4,6 +4,8 @@ import eu.openvalue.timesheet.domain.Assignment;
 import eu.openvalue.timesheet.domain.Client;
 import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.HourCategory;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveUseCase;
+import eu.openvalue.timesheet.domain.HolidayLeave;
 import eu.openvalue.timesheet.domain.Hours;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Project;
@@ -41,6 +43,14 @@ class WebTestConfiguration {
   @Bean
   Clock clock() {
     return Clock.fixed(Instant.parse("2026-05-15T10:00:00Z"), ZoneId.of("Europe/Amsterdam"));
+  }
+
+  /**
+   * Jan's holiday leave in any year: 208 hours, of which 40 taken and 16 reserved.
+   */
+  @Bean
+  ViewHolidayLeaveUseCase viewHolidayLeave() {
+    return query -> new HolidayLeave(query.year(), Hours.of(208), Hours.of(40), Hours.of(16));
   }
 
   @Bean

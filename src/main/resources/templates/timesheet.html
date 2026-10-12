@@ -113,6 +113,19 @@
     Submit it again to send the corrected version to HR.
   </section>
 
+  <section th:fragment="holiday-leave" id="holiday-leave" class="holiday-leave" aria-live="polite"
+           th:hx-swap-oob="${oob} ? 'true'">
+    <span class="label" th:text="|Holiday leave ${leave.year}|">Holiday leave 2026</span>
+    <dl>
+      <div><dt>Entitled</dt><dd th:text="${leave.entitlement}">208</dd></div>
+      <div><dt>Taken</dt><dd th:text="${leave.taken}">40</dd></div>
+      <div><dt>Reserved</dt><dd th:text="${leave.reserved}">16</dd></div>
+      <div th:unless="${leave.overdrawn}"><dt>Available</dt><dd th:text="${leave.available}">152</dd></div>
+      <div class="overdrawn" th:if="${leave.overdrawn}"><dt>Overdrawn</dt>
+        <dd th:text="${leave.overdrawn}">8</dd></div>
+    </dl>
+  </section>
+
   <form class="client-timesheet" th:unless="${page.onBench}"
         th:hx-post="@{/timesheets/{month}/client-timesheet(month=${page.month})}" hx-encoding="multipart/form-data"
         hx-disabled-elt="find button" hx-indicator="find .reading">
