@@ -4,8 +4,11 @@ import eu.openvalue.timesheet.adapter.in.web.CurrentProfessional;
 import eu.openvalue.timesheet.adapter.in.web.CurrentProfessionalProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.AssignmentProperties;
 import eu.openvalue.timesheet.adapter.out.assignment.ConfiguredAssignments;
+import eu.openvalue.timesheet.adapter.out.employment.ConfiguredEmployments;
+import eu.openvalue.timesheet.adapter.out.employment.EmploymentProperties;
 import eu.openvalue.timesheet.adapter.out.mail.MailTimesheetDelivery;
 import eu.openvalue.timesheet.adapter.out.mail.TimesheetMailProperties;
+import eu.openvalue.timesheet.adapter.out.persistence.JpaLeaveBookings;
 import eu.openvalue.timesheet.adapter.out.persistence.JpaTimesheets;
 import eu.openvalue.timesheet.adapter.out.persistence.TimesheetEntityRepository;
 import eu.openvalue.timesheet.adapter.out.reading.ClaudeProperties;
@@ -18,10 +21,12 @@ import eu.openvalue.timesheet.adapter.out.spreadsheet.ExcelTimesheetSpreadsheet;
 import eu.openvalue.timesheet.adapter.out.spreadsheet.SpreadsheetProperties;
 import eu.openvalue.timesheet.application.AdjustingTimesheetDay;
 import eu.openvalue.timesheet.application.CorrectingTimesheet;
+import eu.openvalue.timesheet.application.CurrentTimesheets;
 import eu.openvalue.timesheet.application.DownloadingTimesheet;
 import eu.openvalue.timesheet.application.ImportingClientTimesheets;
 import eu.openvalue.timesheet.application.PreparingTimesheetDraft;
 import eu.openvalue.timesheet.application.SubmittingTimesheet;
+import eu.openvalue.timesheet.application.ViewingHolidayLeave;
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
 import eu.openvalue.timesheet.application.port.in.CorrectTimesheetUseCase;
 import eu.openvalue.timesheet.application.port.in.DownloadTimesheetUseCase;
@@ -29,8 +34,11 @@ import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsUseCase;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetUseCase;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveUseCase;
 import eu.openvalue.timesheet.application.port.out.Assignments;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
+import eu.openvalue.timesheet.application.port.out.Employments;
+import eu.openvalue.timesheet.application.port.out.LeaveBookings;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.application.port.out.Timesheets;
@@ -47,7 +55,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
-    AssignmentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
+    AssignmentProperties.class, EmploymentProperties.class, CurrentProfessionalProperties.class, SpreadsheetProperties.class,
     TimesheetMailProperties.class, OllamaProperties.class,
     ClaudeProperties.class})
 class TimesheetConfiguration {
@@ -75,22 +83,42 @@ class TimesheetConfiguration {
   }
 
   @Bean
+  Employments employments(EmploymentProperties properties) {
+    return new ConfiguredEmployments(properties);
+  }
+
+  @Bean
   Timesheets timesheets(TimesheetEntityRepository repository) {
     return new JpaTimesheets(repository);
+  }
+
+  @Bean
+  LeaveBookings leaveBookings(TimesheetEntityRepository repository) {
+    return new JpaLeaveBookings(repository);
+  }
+
+  @Bean
+  ViewHolidayLeaveUseCase viewHolidayLeaveUseCase(Employments employments, LeaveBookings leaveBookings) {
+    return new ViewingHolidayLeave(employments, leaveBookings);
   }
 
   /**
    * Serves both as {@link PrepareTimesheetDraftUseCase} and as {@link ResetTimesheetDraftUseCase}.
    */
   @Bean
-  PreparingTimesheetDraft prepareTimesheetDraft(TimesheetPrefill prefill, Assignments assignments,
-      Timesheets timesheets) {
-    return new PreparingTimesheetDraft(prefill, assignments, timesheets);
+  CurrentTimesheets currentTimesheets(TimesheetPrefill prefill, Assignments assignments, Timesheets timesheets) {
+    return new CurrentTimesheets(prefill, assignments, timesheets);
   }
 
   @Bean
-  AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(Timesheets timesheets) {
-    return new AdjustingTimesheetDay(timesheets);
+  PreparingTimesheetDraft prepareTimesheetDraft(CurrentTimesheets currentTimesheets, Timesheets timesheets) {
+    return new PreparingTimesheetDraft(currentTimesheets, timesheets);
+  }
+
+  @Bean
+  AdjustTimesheetDayUseCase adjustTimesheetDayUseCase(CurrentTimesheets currentTimesheets,
+      Timesheets timesheets) {
+    return new AdjustingTimesheetDay(currentTimesheets, timesheets);
   }
 
   @Bean
@@ -99,8 +127,9 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  DownloadTimesheetUseCase downloadTimesheetUseCase(Timesheets timesheets, TimesheetSpreadsheet spreadsheet) {
-    return new DownloadingTimesheet(timesheets, spreadsheet);
+  DownloadTimesheetUseCase downloadTimesheetUseCase(CurrentTimesheets currentTimesheets,
+      TimesheetSpreadsheet spreadsheet) {
+    return new DownloadingTimesheet(currentTimesheets, spreadsheet);
   }
 
   @Bean
@@ -109,9 +138,9 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  SubmitTimesheetUseCase submitTimesheetUseCase(Timesheets timesheets, TimesheetSpreadsheet spreadsheet,
-      TimesheetDelivery delivery, Clock clock) {
-    return new SubmittingTimesheet(timesheets, spreadsheet, delivery, clock);
+  SubmitTimesheetUseCase submitTimesheetUseCase(CurrentTimesheets currentTimesheets, Timesheets timesheets,
+      TimesheetSpreadsheet spreadsheet, TimesheetDelivery delivery, Clock clock) {
+    return new SubmittingTimesheet(currentTimesheets, timesheets, spreadsheet, delivery, clock);
   }
 
   @Bean
@@ -141,7 +170,8 @@ class TimesheetConfiguration {
   }
 
   @Bean
-  ImportClientTimesheetsUseCase importClientTimesheetsUseCase(Timesheets timesheets, ClientTimesheetReader reader) {
-    return new ImportingClientTimesheets(timesheets, reader);
+  ImportClientTimesheetsUseCase importClientTimesheetsUseCase(CurrentTimesheets currentTimesheets,
+      Timesheets timesheets, ClientTimesheetReader reader) {
+    return new ImportingClientTimesheets(currentTimesheets, timesheets, reader);
   }
 }

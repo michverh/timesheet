@@ -2,18 +2,14 @@ package eu.openvalue.timesheet.application;
 
 import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsCommand;
 import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsUseCase;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetUnreadableException;
 import eu.openvalue.timesheet.application.port.out.Timesheets;
 import eu.openvalue.timesheet.domain.ClientTimesheet;
 import eu.openvalue.timesheet.domain.ClientTimesheetDocument;
 import eu.openvalue.timesheet.domain.ClientTimesheets;
-import eu.openvalue.timesheet.domain.Professional;
-import eu.openvalue.timesheet.domain.Timesheet;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
-import java.time.YearMonth;
 import java.util.Objects;
 
 /**
@@ -24,10 +20,13 @@ public final class ImportingClientTimesheets implements ImportClientTimesheetsUs
 
   private static final Logger LOGGER = System.getLogger(ImportingClientTimesheets.class.getName());
 
+  private final CurrentTimesheets currentTimesheets;
   private final Timesheets timesheets;
   private final ClientTimesheetReader reader;
 
-  public ImportingClientTimesheets(Timesheets timesheets, ClientTimesheetReader reader) {
+  public ImportingClientTimesheets(CurrentTimesheets currentTimesheets, Timesheets timesheets,
+      ClientTimesheetReader reader) {
+    this.currentTimesheets = Objects.requireNonNull(currentTimesheets, "currentTimesheets");
     this.timesheets = Objects.requireNonNull(timesheets, "timesheets");
     this.reader = Objects.requireNonNull(reader, "reader");
   }
@@ -41,18 +40,13 @@ public final class ImportingClientTimesheets implements ImportClientTimesheetsUs
     var professional = command.professional();
     var month = command.month();
     // Refuses before reading when the client's timesheets cannot be imported, such as when it was submitted.
-    draftOf(professional, month).ensureChangeable();
+    currentTimesheets.of(professional, month).ensureChangeable();
     var imported = ClientTimesheets.of(command.documents().stream().map(this::read).toList());
     ConcurrentChanges.retried(() -> {
-      var draft = draftOf(professional, month);
+      var draft = currentTimesheets.of(professional, month);
       draft.importClientTimesheets(imported);
       timesheets.save(draft);
     });
-  }
-
-  private Timesheet draftOf(Professional professional, YearMonth month) {
-    return timesheets.find(professional, month)
-        .orElseThrow(() -> new TimesheetDraftNotFoundException(professional, month));
   }
 
   private ClientTimesheet read(ClientTimesheetDocument document) {

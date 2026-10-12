@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.application.port.in.ImportClientTimesheetsCommand;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetReader;
 import eu.openvalue.timesheet.application.port.out.ClientTimesheetUnreadableException;
 import eu.openvalue.timesheet.domain.Assignment;
@@ -89,13 +88,15 @@ class ImportingClientTimesheetsTest {
   }
 
   @Test
-  void requiresADraftForTheMonth() {
+  void keepsAMonthNotKeptYetOnceClientsTimesheetsAreImported() {
     // Given
-    var nextMonth = new ImportClientTimesheetsCommand(JAN, MAY_2026.plusMonths(1), List.of(WEEK_19));
+    var june = MAY_2026.plusMonths(1);
 
-    // When / Then
-    assertThatThrownBy(() -> importing(REPORTED::get).importClientTimesheets(nextMonth))
-        .isInstanceOf(TimesheetDraftNotFoundException.class);
+    // When
+    importing(REPORTED::get).importClientTimesheets(new ImportClientTimesheetsCommand(JAN, june, List.of(WEEK_19)));
+
+    // Then
+    assertThat(timesheets.find(JAN, june).orElseThrow().clientTimesheets().documents()).containsExactly(WEEK_19);
   }
 
   @Test
@@ -133,7 +134,7 @@ class ImportingClientTimesheetsTest {
   }
 
   private ImportingClientTimesheets importing(ClientTimesheetReader reader) {
-    return new ImportingClientTimesheets(timesheets, reader);
+    return new ImportingClientTimesheets(timesheets.current(), timesheets, reader);
   }
 
   private static ImportClientTimesheetsCommand command(ClientTimesheetDocument... documents) {

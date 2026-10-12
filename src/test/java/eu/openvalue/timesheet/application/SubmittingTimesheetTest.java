@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.application.port.in.SubmitTimesheetCommand;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.in.TimesheetSubmissionFailedException;
 import eu.openvalue.timesheet.application.port.out.SpreadsheetFile;
 import eu.openvalue.timesheet.application.port.out.TimesheetDelivery;
@@ -43,7 +42,7 @@ class SubmittingTimesheetTest {
   private final Clock clock = Clock.fixed(Instant.parse("2026-06-02T08:00:00Z"), ZoneId.of("Europe/Amsterdam"));
 
   private SubmittingTimesheet submitTimesheet(TimesheetDelivery delivery) {
-    return new SubmittingTimesheet(timesheets, spreadsheet, delivery, clock);
+    return new SubmittingTimesheet(timesheets.current(), timesheets, spreadsheet, delivery, clock);
   }
 
   private final SubmittingTimesheet submit = submitTimesheet(delivered::add);
@@ -140,9 +139,13 @@ class SubmittingTimesheetTest {
   }
 
   @Test
-  void requiresADraftForTheMonth() {
-    assertThatThrownBy(() -> submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026)))
-        .isInstanceOf(TimesheetDraftNotFoundException.class);
+  void submitsAndKeepsAMonthNotKeptYet() {
+    // When
+    submit.submit(new SubmitTimesheetCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(delivered).hasSize(1);
+    assertThat(timesheets.find(JAN, MAY_2026).orElseThrow().submittedOn()).contains(TODAY);
   }
 
   @Test

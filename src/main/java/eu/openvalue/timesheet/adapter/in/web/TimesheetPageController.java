@@ -4,9 +4,12 @@ import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.PrepareTimesheetDraftUseCase;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftCommand;
 import eu.openvalue.timesheet.application.port.in.ResetTimesheetDraftUseCase;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveQuery;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveUseCase;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.Professional;
 import java.time.Clock;
+import java.time.Year;
 import java.time.YearMonth;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -24,12 +27,14 @@ class TimesheetPageController {
 
   private final PrepareTimesheetDraftUseCase prepareDraft;
   private final ResetTimesheetDraftUseCase resetDraft;
+  private final ViewHolidayLeaveUseCase viewHolidayLeave;
   private final Clock clock;
 
   TimesheetPageController(PrepareTimesheetDraftUseCase prepareDraft, ResetTimesheetDraftUseCase resetDraft,
-      Clock clock) {
+      ViewHolidayLeaveUseCase viewHolidayLeave, Clock clock) {
     this.prepareDraft = prepareDraft;
     this.resetDraft = resetDraft;
+    this.viewHolidayLeave = viewHolidayLeave;
     this.clock = clock;
   }
 
@@ -43,6 +48,8 @@ class TimesheetPageController {
       Model model) {
     var draft = prepareDraft.prepareDraft(new PrepareTimesheetDraftCommand(professional, month));
     model.addAttribute("page", TimesheetPage.of(draft));
+    model.addAttribute("leave", HolidayLeaveSummary.of(
+        viewHolidayLeave.holidayLeave(new ViewHolidayLeaveQuery(professional, Year.from(month)))));
     model.addAttribute("categories", HourCategory.values());
     return "timesheet";
   }

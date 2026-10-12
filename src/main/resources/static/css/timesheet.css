@@ -142,6 +142,43 @@ h2 {
   display: none !important;
 }
 
+.holiday-leave {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin-bottom: 12px;
+}
+
+.holiday-leave .label {
+  color: var(--muted);
+}
+
+.holiday-leave dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.holiday-leave dl div {
+  display: flex;
+  gap: 6px;
+}
+
+.holiday-leave dt {
+  color: var(--muted);
+}
+
+.holiday-leave dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.holiday-leave .overdrawn dd {
+  color: var(--error-text);
+}
+
 .client-timesheet {
   display: flex;
   flex-wrap: wrap;

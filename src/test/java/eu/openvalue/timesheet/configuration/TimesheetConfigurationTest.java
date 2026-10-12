@@ -20,6 +20,7 @@ class TimesheetConfigurationTest {
       .withBean(TimesheetEntityRepository.class, () -> mock(TimesheetEntityRepository.class))
       .withPropertyValues(
           "timesheet.professional.email=jan.jansen@openvalue.nl",
+          "timesheet.employment.start-date=2020-01-01",
           "timesheet.client-timesheet-reader.ollama.base-url=http://localhost:11434",
           "timesheet.client-timesheet-reader.ollama.model=qwen3-vl:8b-instruct",
           "timesheet.mail.from=timesheets@openvalue.example",

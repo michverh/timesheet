@@ -1,10 +1,14 @@
 package eu.openvalue.timesheet.adapter.in.web;
 
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayUseCase;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveQuery;
+import eu.openvalue.timesheet.application.port.in.ViewHolidayLeaveUseCase;
 import eu.openvalue.timesheet.domain.DomainException;
+import eu.openvalue.timesheet.domain.Timesheet;
 import eu.openvalue.timesheet.domain.HourCategory;
 import eu.openvalue.timesheet.domain.Professional;
 import java.time.LocalDate;
+import java.time.Year;
 import java.time.YearMonth;
 import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,9 +33,11 @@ class TimesheetDayController {
   private static final HourCategory[] CATEGORIES = HourCategory.values();
 
   private final AdjustTimesheetDayUseCase adjustDay;
+  private final ViewHolidayLeaveUseCase viewHolidayLeave;
 
-  TimesheetDayController(AdjustTimesheetDayUseCase adjustDay) {
+  TimesheetDayController(AdjustTimesheetDayUseCase adjustDay, ViewHolidayLeaveUseCase viewHolidayLeave) {
     this.adjustDay = adjustDay;
+    this.viewHolidayLeave = viewHolidayLeave;
   }
 
   @PostMapping("/timesheets/{month}/days/{date}")
@@ -42,16 +48,20 @@ class TimesheetDayController {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, date + " is not part of " + month);
     }
     var input = DayForm.from(parameters);
+    Timesheet adjusted;
     try {
-      var page = TimesheetPage.of(adjustDay.adjustDay(input.toCommand(professional, date)));
-      return FragmentsRendering
-          .fragment(DAY_ROW, Map.of("row", page.day(date).orElseThrow(), "categories", CATEGORIES))
-          .fragment(DAY_UPDATED, Map.of("page", page, "categories", CATEGORIES, "oob", true))
-          .build();
+      adjusted = adjustDay.adjustDay(input.toCommand(professional, date));
     } catch (InvalidDayInputException | DomainException e) {
       return FragmentsRendering
           .fragment(DAY_ROW, Map.of("row", DayRow.rejected(date, input, e.getMessage()), "categories", CATEGORIES))
           .build();
     }
+    var page = TimesheetPage.of(adjusted);
+    var leave = HolidayLeaveSummary.of(
+        viewHolidayLeave.holidayLeave(new ViewHolidayLeaveQuery(professional, Year.from(month))));
+    return FragmentsRendering
+        .fragment(DAY_ROW, Map.of("row", page.day(date).orElseThrow(), "categories", CATEGORIES))
+        .fragment(DAY_UPDATED, Map.of("page", page, "leave", leave, "categories", CATEGORIES, "oob", true))
+        .build();
   }
 }

@@ -2,8 +2,12 @@ package eu.openvalue.timesheet.application;
 
 import eu.openvalue.timesheet.application.port.out.TimesheetChangedConcurrentlyException;
 import eu.openvalue.timesheet.application.port.out.Timesheets;
+import eu.openvalue.timesheet.domain.Assignment;
+import eu.openvalue.timesheet.domain.Client;
+import eu.openvalue.timesheet.domain.DutchPublicHolidays;
 import eu.openvalue.timesheet.domain.Professional;
 import eu.openvalue.timesheet.domain.Timesheet;
+import eu.openvalue.timesheet.domain.TimesheetPrefill;
 import java.time.YearMonth;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -48,6 +52,15 @@ final class FakeTimesheets implements Timesheets {
     var next = version.orElse(0) + 1;
     kept.put(key, new Kept(copyOf(timesheet), next));
     versionsFound.put(timesheet, next);
+  }
+
+  /**
+   * The timesheets as kept here or, for months not kept yet, prefilled with Dutch public holidays for a professional
+   * working at ACME.
+   */
+  CurrentTimesheets current() {
+    return new CurrentTimesheets(new TimesheetPrefill(new DutchPublicHolidays()),
+        (professional, month) -> Optional.of(Assignment.at(new Client("ACME"))), this);
   }
 
   /**

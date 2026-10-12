@@ -121,4 +121,18 @@ class TimesheetDayControllerTest {
     assertThat(mvc.post().uri("/timesheets/2026-05/days/2026-06-01").param("hours-WORKED", "8"))
         .hasStatus(HttpStatus.NOT_FOUND);
   }
+
+  @Test
+  void updatesTheHolidayLeaveAlongsideTheRow() {
+    // Given
+    when(adjustDay.adjustDay(any())).thenReturn(draft());
+
+    // When
+    var response = mvc.post().uri("/timesheets/2026-05/days/2026-05-04").param("hours-LEAVE", "8").exchange();
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .containsPattern("id=\"holiday-leave\"[^>]*hx-swap-oob=\"true\"")
+        .contains("<dt>Available</dt><dd>152</dd>");
+  }
 }

@@ -1,10 +1,8 @@
 package eu.openvalue.timesheet.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.application.port.in.DownloadTimesheetCommand;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.application.port.out.SpreadsheetFile;
 import eu.openvalue.timesheet.application.port.out.TimesheetSpreadsheet;
 import eu.openvalue.timesheet.domain.Professional;
@@ -24,7 +22,7 @@ class DownloadingTimesheetTest {
       "application/vnd.oasis.opendocument.spreadsheet",
       ("spreadsheet of " + timesheet.professional().name() + " for " + timesheet.month())
           .getBytes(StandardCharsets.UTF_8));
-  private final DownloadingTimesheet download = new DownloadingTimesheet(timesheets, spreadsheet);
+  private final DownloadingTimesheet download = new DownloadingTimesheet(timesheets.current(), spreadsheet);
 
   @Test
   void givesTheDraftAsSpreadsheet() {
@@ -53,8 +51,12 @@ class DownloadingTimesheetTest {
   }
 
   @Test
-  void requiresADraftForTheMonth() {
-    assertThatThrownBy(() -> download.download(new DownloadTimesheetCommand(JAN, MAY_2026)))
-        .isInstanceOf(TimesheetDraftNotFoundException.class);
+  void downloadsTheMonthAsPrefilledWhenNotKeptYetWithoutKeepingIt() {
+    // When
+    var downloaded = download.download(new DownloadTimesheetCommand(JAN, MAY_2026));
+
+    // Then
+    assertThat(downloaded.fileName()).startsWith("Urenverantwoording_2026-05_");
+    assertThat(timesheets.find(JAN, MAY_2026)).isEmpty();
   }
 }

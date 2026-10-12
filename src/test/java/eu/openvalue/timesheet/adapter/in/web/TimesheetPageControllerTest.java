@@ -347,4 +347,21 @@ class TimesheetPageControllerTest {
     assertThat(response).hasStatus(HttpStatus.NO_CONTENT).hasHeader("HX-Refresh", "true");
     verify(resetDraft).resetDraft(new ResetTimesheetDraftCommand(JAN, MAY_2026));
   }
+
+  @Test
+  void showsTheHolidayLeaveOfTheYear() {
+    // Given
+    when(prepareDraft.prepareDraft(any())).thenReturn(draft());
+
+    // When
+    var response = mvc.get().uri("/timesheets/2026-05");
+
+    // Then
+    assertThat(response).hasStatusOk().bodyText()
+        .contains("Holiday leave 2026")
+        .containsPattern("<dt>Entitled</dt><dd>208</dd>")
+        .containsPattern("<dt>Taken</dt><dd>40</dd>")
+        .containsPattern("<dt>Reserved</dt><dd>16</dd>")
+        .containsPattern("<dt>Available</dt><dd>152</dd>");
+  }
 }

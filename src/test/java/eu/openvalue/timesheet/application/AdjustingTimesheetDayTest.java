@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import eu.openvalue.timesheet.application.port.in.AdjustTimesheetDayCommand;
-import eu.openvalue.timesheet.application.port.in.TimesheetDraftNotFoundException;
 import eu.openvalue.timesheet.domain.DailyHoursLimitExceededException;
 import eu.openvalue.timesheet.domain.Explanation;
 import eu.openvalue.timesheet.domain.HourCategory;
@@ -28,7 +27,7 @@ class AdjustingTimesheetDayTest {
   private static final Professional JAN = Professional.withEmail("jan.jansen@openvalue.nl");
 
   private final FakeTimesheets timesheets = new FakeTimesheets();
-  private final AdjustingTimesheetDay adjustDay = new AdjustingTimesheetDay(timesheets);
+  private final AdjustingTimesheetDay adjustDay = new AdjustingTimesheetDay(timesheets.current(), timesheets);
 
   private Timesheet draft;
 
@@ -83,14 +82,17 @@ class AdjustingTimesheetDayTest {
   }
 
   @Test
-  void requiresADraftForTheMonth() {
+  void keepsAMonthNotKeptYetOnceADayIsAdjusted() {
     // Given
     var dayInJune = LocalDate.of(2026, 6, 1);
 
-    // When / Then
-    assertThatThrownBy(() -> adjustDay.adjustDay(new AdjustTimesheetDayCommand(JAN, dayInJune,
-        Map.of(WORKED, Hours.of(8)), Kilometres.ZERO, Optional.empty())))
-        .isInstanceOf(TimesheetDraftNotFoundException.class);
+    // When
+    adjustDay.adjustDay(new AdjustTimesheetDayCommand(JAN, dayInJune, Map.of(WORKED, Hours.of(6)), Kilometres.ZERO,
+        Optional.empty()));
+
+    // Then
+    assertThat(timesheets.find(JAN, YearMonth.from(dayInJune)).orElseThrow().day(dayInJune).hours(WORKED))
+        .isEqualTo(Hours.of(6));
   }
 
   private static AdjustTimesheetDayCommand command(Map<HourCategory, Hours> hours,
